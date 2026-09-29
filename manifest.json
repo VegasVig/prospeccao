@@ -1,0 +1,26 @@
+{
+  "name": "Vegas Vigilância — Prospecção de Clientes",
+  "short_name": "Vegas Prospecção",
+  "description": "Prospecção de clientes, contatos, propostas e orçamentos da Vegas Vigilância e Segurança.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0d0f12",
+  "theme_color": "#0d0f12",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Novo cliente", "short_name": "Novo cliente", "url": "./index.html#/clientes", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Contatos de hoje", "short_name": "Hoje", "url": "./index.html#/contatos", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Nova proposta", "short_name": "Proposta", "url": "./index.html#/propostas/nova", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

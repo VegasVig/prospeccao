@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Vegas Vigilância — Prospecção de Clientes</title>
+  <meta name="description" content="Sistema de prospecção de clientes da Vegas Vigilância e Segurança">
+
+  <!-- PWA / instalação no celular -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0d0f12">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Vegas Prospecção">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+
+  <!-- Tema salvo aplicado antes de desenhar a página (evita "piscar") -->
+  <script>
+    (function () {
+      try {
+        var p = localStorage.getItem('vg_theme') || 'auto';
+        var dark = p === 'dark' || (p === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ====================== TELA DE LOGIN ====================== -->
+  <section id="login" class="login" hidden>
+    <div class="login-art" aria-hidden="true">
+      <div class="login-art-planes"></div>
+    </div>
+    <div class="login-panel">
+      <img class="login-icon" src="icons/icon-512.png" alt="">
+      <img class="login-logo" src="assets/logo-branca.png" alt="Vegas Vigilância e Segurança">
+      <h1 class="login-title">Prospecção de clientes</h1>
+      <p class="login-sub">Entre com seu usuário para acessar sua carteira.</p>
+
+      <form id="loginForm" class="login-form" autocomplete="on" novalidate>
+        <label class="field">
+          <span>Usuário</span>
+          <input id="loginUser" name="usuario" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        </label>
+        <label class="field">
+          <span>Senha</span>
+          <div class="input-group">
+            <input id="loginPass" name="senha" type="password" autocomplete="current-password" required>
+            <button type="button" class="btn-icon" data-act="toggle-pass" aria-label="Mostrar senha"></button>
+          </div>
+        </label>
+        <p id="loginError" class="login-error" role="alert" hidden></p>
+        <button class="btn btn-primary btn-lg btn-block" type="submit">Entrar</button>
+      </form>
+
+      <div class="login-foot">
+        <button type="button" class="link" data-act="server-config">Configurar servidor</button>
+        <button type="button" class="link" data-act="theme-cycle">Alternar tema</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== APLICAÇÃO ====================== -->
+  <div id="app" class="app" hidden>
+    <!-- Menu lateral -->
+    <aside id="sidebar" class="sidebar" aria-label="Menu principal">
+      <div class="brand">
+        <img src="assets/logo-branca.png" alt="Vegas Vigilância e Segurança" class="brand-logo">
+        <div class="brand-plate">Prospecção de clientes</div>
+      </div>
+      <nav id="nav" class="nav"></nav>
+      <div class="sidebar-foot">
+        <button type="button" id="installBtn" class="nav-item install" data-act="install" hidden></button>
+        <div class="me">
+          <span class="avatar" id="meAvatar"></span>
+          <div class="me-info"><strong id="meName"></strong><small id="meRole"></small></div>
+        </div>
+      </div>
+    </aside>
+    <div class="scrim" data-act="close-menu"></div>
+
+    <!-- Área principal -->
+    <div class="main">
+      <header class="topbar">
+        <button type="button" class="btn-icon menu-btn" data-act="open-menu" aria-label="Abrir menu"></button>
+        <img class="topbar-logo" src="assets/logo-branca.png" alt="Vegas">
+        <div class="search" role="search">
+          <span class="search-ico" aria-hidden="true"></span>
+          <input id="globalSearch" type="search" placeholder="Buscar cliente, CNPJ, telefone, cidade…" autocomplete="off" aria-label="Busca global">
+          <div id="searchResults" class="search-results" hidden></div>
+        </div>
+        <div class="topbar-actions">
+          <label id="scopeWrap" class="scope" hidden title="Visualizar dados de">
+            <span class="sr-only">Visualizar dados de</span>
+            <select id="scopeSelect"></select>
+          </label>
+          <button type="button" class="btn-icon" data-act="sync" aria-label="Atualizar dados" title="Atualizar dados" id="syncBtn"></button>
+          <button type="button" class="btn-icon" data-act="theme-cycle" aria-label="Alternar tema claro/escuro" title="Tema claro / escuro" id="themeBtn"></button>
+        </div>
+      </header>
+
+      <main id="view" class="view" tabindex="-1"></main>
+    </div>
+
+    <!-- Navegação inferior (celular) -->
+    <nav id="bottomNav" class="bottom-nav" aria-label="Navegação rápida"></nav>
+  </div>
+
+  <!-- Camadas globais -->
+  <div id="modalRoot"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="loading" class="loading" hidden><div class="loading-bar"></div></div>
+  <div id="splash" class="splash"><img src="icons/icon-192.png" alt=""></div>
+
+  <!-- Bibliotecas (gráficos e PDF) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+
+  <!-- Aplicação -->
+  <script src="pdf.js" defer></script>
+  <script src="script.js" defer></script>
+</body>
+</html>
