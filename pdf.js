@@ -120,7 +120,8 @@
       [['BAIRRO:', up(c.bairro)], ['CIDADE:', up(c.cidade), up(c.estado)]]
     ];
     const fone = c.whatsapp || c.telefone;
-    if (fone || (c.contato && c.empresa)) linhas.push([['TELEFONE:', fone ? mascaraFone(fone) : ''], ['CONTATO:', up(c.contato && c.empresa ? c.contato : '')]]);
+    const pessoa = c.contato && c.empresa && c.contato !== c.empresa ? up(c.contato) : '';
+    if (fone || pessoa) linhas.push([['TELEFONE:', fone ? mascaraFone(fone) : '']].concat(pessoa ? [['CONTATO:', pessoa]] : []));
     linhas.push([['VALIDO ATÉ:', dt(p.validade)], ['EMISSÃO:', dt(p.dataEmissao)]]);
     let y = 122.4;
     linhas.forEach(row => {
@@ -198,22 +199,33 @@
       y = t + 13.7 + 13.5;
     }
 
-    /* RESUMO — subtotal, desconto e valor final (mesmo estilo do bloco mensal) */
-    garantir(72);
-    faixa(doc, 'RESUMO DO ORÇAMENTO', y, 19.7);
-    pontilhado(doc, 'SUBTOTAL', brl(p.subtotal), y + 27, false);
-    pontilhado(doc, 'DESCONTO', (Number(p.desconto) > 0 ? '- ' : '') + brl(p.desconto), y + 41.5, false);
-    pontilhado(doc, 'VALOR FINAL', brl(p.valorFinal), y + 56, true);
-    y += 76;
-
-    /* COBRANÇA MENSAL */
-    if (p.incluirMensal) {
+    /* RESUMO e COBRANÇA MENSAL
+       Venda: resumo (subtotal, desconto, valor final) e, se houver, a mensalidade.
+       Locação: primeiro o aluguel mensal (como no modelo); o resumo só aparece
+       quando existem itens cobrados à parte (ex.: cabos, instalação). */
+    const locacao = /loca|comod|alug/i.test(String(p.tipoOrcamento || ''));
+    const blocoResumo = () => {
+      garantir(72);
+      faixa(doc, locacao ? 'VALORES COBRADOS À PARTE' : 'RESUMO DO ORÇAMENTO', y, 19.7);
+      pontilhado(doc, 'SUBTOTAL', brl(p.subtotal), y + 27, false);
+      pontilhado(doc, 'DESCONTO', (Number(p.desconto) > 0 ? '- ' : '') + brl(p.desconto), y + 41.5, false);
+      pontilhado(doc, 'VALOR FINAL', brl(p.valorFinal), y + 56, true);
+      y += 76;
+    };
+    const blocoMensal = () => {
       garantir(95);
       faixa(doc, 'COBRANÇA MENSAL', y, 19.7);
       pontilhado(doc, 'VALOR MENSAL', brl(p.valorMensal), y + 35.1, false);
       pontilhado(doc, 'VALOR MENSAL OUTROS SERVIÇOS', brl(p.outrosMensal), y + 50.8, false);
       pontilhado(doc, 'VALOR TOTAL DA MENSALIDADE', brl(p.totalMensal != null ? p.totalMensal : (Number(p.valorMensal) || 0) + (Number(p.outrosMensal) || 0)), y + 66.2, true);
       y += 93.3;
+    };
+    if (locacao) {
+      blocoMensal();
+      if (Number(p.subtotal) > 0 || Number(p.desconto) > 0) blocoResumo();
+    } else {
+      blocoResumo();
+      if (p.incluirMensal) blocoMensal();
     }
 
     /* CONDIÇÕES DE PAGAMENTO */

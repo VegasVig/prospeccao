@@ -185,32 +185,59 @@ input.geo-filled { border-color: #1f9d55; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- 5. Login ---------- */
-.login { min-height: 100%; display: grid; grid-template-columns: 1.1fr 1fr; background: var(--chrome-bg); color: var(--chrome-text); }
-.login-art { position: relative; overflow: hidden; background: #08090b; }
+/* Arte oficial à esquerda (assets/login-fundo.jpg) e formulário sobre a mesma
+   arte desfocada à direita. No celular a arte vira o topo da tela. */
+.login {
+  position: relative; min-height: 100%; display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 470px);
+  background: #050607 url("assets/login-fundo-blur.jpg") center / cover no-repeat;
+  color: var(--chrome-text); overflow: hidden;
+}
+.login-art { position: relative; overflow: hidden; background: #050607; }
 .login-art-planes {
   position: absolute; inset: 0;
-  background:
-    linear-gradient(118deg, transparent 0 38%, rgba(255,255,255,.035) 38% 52%, transparent 52%),
-    linear-gradient(62deg, transparent 0 55%, rgba(255,255,255,.03) 55% 70%, transparent 70%),
-    radial-gradient(90% 70% at 20% 110%, rgba(224,35,44,.28), transparent 60%),
-    url("assets/logo-branca.png") center 42% / 62% auto no-repeat;
-  opacity: .9;
+  background: url("assets/login-fundo.jpg") center / cover no-repeat;
+  transform-origin: 50% 45%;
+  animation: loginZoom 14s var(--ease) both;
 }
-.login-art::after { content: ""; position: absolute; left: 8%; right: 8%; bottom: 12%; height: 2px; background: linear-gradient(90deg, transparent, var(--red), transparent); opacity: .7; }
-.login-panel { display: flex; flex-direction: column; justify-content: center; padding: 48px clamp(24px, 6vw, 88px); max-width: 560px; width: 100%; margin: 0 auto; }
-.login-icon { width: 92px; height: 92px; border-radius: 22px; box-shadow: 0 10px 30px -10px rgba(0,0,0,.8); margin-bottom: 22px; }
-.login-logo { display: none; width: 220px; margin-bottom: 18px; }
-.login-title { font-size: 30px; color: #fff; }
-.login-sub { color: var(--chrome-muted); margin: 8px 0 28px; }
+/* Vinheta: escurece as bordas e funde a arte com o painel do formulário */
+.login-art::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0,0,0,.55) 100%),
+    linear-gradient(90deg, transparent 72%, rgba(5,6,7,.85) 100%);
+}
+/* Linha vermelha na divisa, como os feixes da arte */
+.login-art::after {
+  content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 2px; z-index: 2;
+  background: linear-gradient(180deg, transparent 5%, var(--red) 35%, #ff6b70 50%, var(--red) 65%, transparent 95%);
+  box-shadow: 0 0 18px 2px rgba(224,35,44,.55);
+}
+@keyframes loginZoom { from { transform: scale(1.08); opacity: .35; } to { transform: scale(1); opacity: 1; } }
+
+.login-panel {
+  position: relative; display: flex; flex-direction: column; justify-content: center;
+  padding: 48px clamp(28px, 4vw, 56px); width: 100%;
+  background: linear-gradient(180deg, rgba(8,9,11,.78), rgba(8,9,11,.9));
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  animation: panelIn .6s .15s var(--ease) both;
+}
+@keyframes panelIn { from { opacity: 0; transform: translateX(18px); } }
+@keyframes panelUp { from { opacity: 0; transform: translateY(14px); } }
+.login-icon { display: none; }
+.login-logo { display: none; }
+.login-title { font-size: 28px; color: #fff; }
+.login-sub { color: #a3a9b2; margin: 8px 0 28px; }
 .login-form { display: grid; gap: 16px; }
 .login-form .field > span { color: var(--chrome-text); }
-.login-form input { background: #07080a; border-color: #2c313a; color: #fff; min-height: 50px; font-size: 16px; }
+.login-form input { background: rgba(3,4,5,.72); border-color: #30353e; color: #fff; min-height: 50px; font-size: 16px; }
 .login-form input:focus { border-color: #c9ccd2; box-shadow: 0 0 0 3px rgba(255,255,255,.1); }
-.login-form .btn-primary { background: var(--silver); color: #111317; border: 0; margin-top: 6px; }
-.login-form .btn-icon { width: 50px; height: 50px; border-color: #2c313a; color: #c9ccd2; }
-.login-error { margin: 0; padding: 10px 12px; border-left: 3px solid var(--red); background: rgba(224,35,44,.1); color: #ffb3b6; font-size: 14px; }
+.login-form .btn-primary { background: var(--silver); color: #111317; border: 0; margin-top: 6px; box-shadow: inset 0 -2px 0 var(--red); }
+.login-form .btn-icon { width: 50px; height: 50px; border-color: #30353e; color: #c9ccd2; background: rgba(3,4,5,.72); }
+.login-error { margin: 0; padding: 10px 12px; border-left: 3px solid var(--red); background: rgba(224,35,44,.12); color: #ffb3b6; font-size: 14px; }
 .login-foot { display: flex; justify-content: space-between; margin-top: 26px; }
-.login-foot .link { color: var(--chrome-muted); }
+.login-foot .link { color: #8d949e; }
+.login-copy { margin-top: 34px; font-size: 12px; color: #6d737c; }
 
 /* ---------- 6. Estrutura da aplicação ---------- */
 .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100%; }
@@ -414,6 +441,19 @@ select.status-select { min-height: 34px; padding: 4px 30px 4px 10px; font-size: 
 .cond-row { display: grid; grid-template-columns: 1fr 1.4fr 1fr 1fr 40px; gap: 8px; align-items: center; margin-bottom: 8px; }
 .cond-row > * { min-width: 0; }
 
+/* Escolha Venda × Locação */
+.tipo-orc-grid { display: grid; gap: 10px; }
+.tipo-orc { display: flex; gap: 14px; align-items: flex-start; width: 100%; text-align: left; padding: 16px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; }
+.tipo-orc:hover { border-color: var(--text); background: var(--surface-2); }
+.tipo-orc strong { display: block; font-family: var(--font-display); font-size: 17px; }
+.tipo-orc small { display: block; color: var(--muted); font-size: 13.5px; margin-top: 3px; }
+.tipo-orc-ico { width: 44px; height: 44px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--surface-3); }
+.tipo-orc-ico svg.i { width: 22px; height: 22px; }
+.seg-lg span { min-height: 46px; padding: 0 18px; font-size: 15px; font-weight: 600; }
+.panel-aluguel { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
+.panel-aluguel .panel-head h2 { display: flex; align-items: center; gap: 8px; }
+.totals .final.aluguel { border-top: 0; padding-top: 0; margin-top: 0; color: var(--red); font-size: 20px; }
+
 /* ---------- 15. Importação CSV ---------- */
 .dropzone {
   display: grid; place-items: center; gap: 10px; text-align: center; padding: 42px 20px;
@@ -501,9 +541,15 @@ select.status-select { min-height: 34px; padding: 4px 30px 4px 10px; font-size: 
   .menu-btn { display: inline-grid; }
   .dash-grid, .settings { grid-template-columns: 1fr; }
   .agenda { grid-template-columns: 1fr; }
-  .login { grid-template-columns: 1fr; }
-  .login-art { display: none; }
-  .login-logo { display: block; }
+  /* Celular/tablet: arte no topo, formulário embaixo */
+  .login { grid-template-columns: 1fr; grid-template-rows: auto 1fr; min-height: 100dvh; }
+  .login-art { height: clamp(230px, 42vh, 420px); }
+  .login-art::before { background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0,0,0,.5) 100%), linear-gradient(180deg, transparent 70%, rgba(8,9,11,.95) 100%); }
+  .login-art::after { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 2px; background: linear-gradient(90deg, transparent 5%, var(--red) 35%, #ff6b70 50%, var(--red) 65%, transparent 95%); }
+  .login-panel { justify-content: flex-start; padding: 26px 22px 32px; max-width: 520px; margin: 0 auto; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; animation-name: panelUp; }
+  .login-logo { display: none; }
+  .login-title { font-size: 24px; }
+  .login-sub { margin-bottom: 22px; }
 }
 @media (max-width: 720px) {
   body { font-size: 15.5px; }

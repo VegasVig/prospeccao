@@ -42,7 +42,7 @@ const SCHEMA = {
   ],
   CLIENTES: [
     ['id', 'ID'], ['codigo', 'Código'], ['dataCadastro', 'Data de cadastro'], ['vendedor', 'Vendedor'],
-    ['usuarioVendedor', 'Usuário vendedor'], ['empresa', 'Empresa'], ['razaoSocial', 'Razão social'],
+    ['usuarioVendedor', 'Usuário vendedor'], ['empresa', 'Cliente'], ['razaoSocial', 'Razão social'],
     ['documento', 'CPF/CNPJ'], ['inscricao', 'Inscrição'], ['segmento', 'Segmento'],
     ['endereco', 'Endereço'], ['numero', 'Número'], ['complemento', 'Complemento'],
     ['bairro', 'Bairro'], ['cidade', 'Cidade'], ['estado', 'Estado'], ['cep', 'CEP'],
@@ -425,7 +425,8 @@ function saveCliente_(p, user) {
     CAMPOS_CLIENTE.forEach(function (k) { data[k] = clean_(p[k], k.indexOf('obs') === 0 ? 5000 : 300); });
     data.estado = data.estado.toUpperCase().slice(0, 2);
     data.email = data.email.toLowerCase();
-    if (!data.empresa && !data.contato) throw new Error('Informe o nome da empresa ou do contato.');
+    if (!data.empresa) data.empresa = data.contato;
+    if (!data.empresa) throw new Error('Informe o nome do cliente.');
     if (data.status && STATUS_CLIENTE.indexOf(data.status) === -1) throw new Error('Status inválido.');
     if (!data.status) data.status = 'Novo lead';
     if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) throw new Error('E-mail inválido.');
@@ -752,6 +753,10 @@ function saveProposta_(p, user) {
       };
     }).filter(function (i) { return i.descricao; });
     if (!itens.length) throw new Error('Adicione pelo menos um produto ou serviço.');
+    // Venda: nada é comodato. Locação: exige o valor do aluguel mensal.
+    const tipoOrc = /loca|comod|alug/i.test(String(p.tipoOrcamento || '')) ? 'Locado' : 'Venda';
+    if (tipoOrc === 'Venda') itens.forEach(function (i) { if (i.locado) { i.locado = false; i.total = round2_(i.quantidade * i.valorUnitario - i.desconto); } });
+    if (tipoOrc === 'Locado' && !(num_(p.valorMensal) > 0)) throw new Error('Informe o valor do aluguel mensal da locação.');
 
     const subtotal = round2_(itens.reduce(function (s, i) { return s + i.total; }, 0));
     let desconto = round2_(num_(p.desconto));
@@ -767,10 +772,10 @@ function saveProposta_(p, user) {
     const d = {
       clienteId: cliente.id, cliente: cliente.empresa || cliente.contato,
       vendedor: user.nome, usuarioVendedor: cliente.usuarioVendedor,
-      tipoOrcamento: clean_(p.tipoOrcamento, 40) || 'Venda',
+      tipoOrcamento: tipoOrc,
       validade: clean_(p.validade, 20), itens: JSON.stringify(itens),
       subtotal: String(subtotal), desconto: String(desconto), valorFinal: String(valorFinal),
-      incluirMensal: p.incluirMensal ? 'Sim' : 'Não', valorMensal: String(valorMensal), outrosMensal: String(outrosMensal),
+      incluirMensal: (p.incluirMensal || tipoOrc === 'Locado') ? 'Sim' : 'Não', valorMensal: String(valorMensal), outrosMensal: String(outrosMensal),
       totalMensal: String(round2_(valorMensal + outrosMensal)), condicoes: JSON.stringify(condicoes),
       obsCliente: clean_(p.obsCliente, 5000), status: clean_(p.status, 30) || 'Enviada', dataAtualizacao: now_()
     };

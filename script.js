@@ -22,9 +22,9 @@
 
 /** Cole aqui a URL do App da Web do Apps Script (termina em /exec).
  *  Também é possível informar pela tela de login em "Configurar servidor". */
-const API_URL_PADRAO = 'https://script.google.com/macros/s/AKfycby1JxZg4Ndwud2Xa5QQXUN1GJFDR5WrhuVDCqViJdqpMk_SEcu7F4nGQFT7lpDYhcdx/exec';
+const API_URL_PADRAO = '';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 const STATUS = [
   'Novo lead', 'Primeiro contato', 'Em negociação', 'Visita agendada', 'Orçamento enviado',
@@ -44,7 +44,10 @@ const RESULTADOS = ['Atendeu / conversou', 'Não atendeu', 'Pediu retorno', 'Int
 const ORIGENS = ['Indicação', 'Instagram', 'Facebook', 'Google', 'Site', 'WhatsApp', 'Ligação ativa', 'Visita presencial', 'Panfleto / placa', 'Cliente antigo', 'Evento', 'Outro'];
 const SEGMENTOS = ['Residencial', 'Condomínio', 'Comércio', 'Indústria', 'Escritório', 'Escola', 'Clínica / Saúde', 'Restaurante / Bar', 'Igreja', 'Órgão público', 'Rural', 'Outro'];
 const INTERESSES = ['Câmeras / CFTV', 'Alarme monitorado', 'Monitoramento 24h', 'Controle de acesso', 'Cerca elétrica', 'Portaria remota', 'Vigilância patrimonial', 'Interfonia', 'Rastreamento', 'Outro'];
-const TIPOS_ORCAMENTO = ['Venda', 'Locado', 'Comodato', 'Instalação', 'Manutenção'];
+/** Tipos de orçamento: Venda ou Locação (comodato). Na locação os equipamentos saem
+ *  como "Locado" no PDF e o cliente paga o aluguel mensal. */
+const TIPOS_ORCAMENTO = [{ v: 'Venda', l: 'Venda' }, { v: 'Locado', l: 'Locação (comodato)' }];
+const normTipo = t => /loca|comod|alug/i.test(String(t || '')) ? 'Locado' : 'Venda';
 const STATUS_PROPOSTA = ['Rascunho', 'Enviada', 'Aprovada', 'Recusada', 'Expirada'];
 const STATUS_PROSPECCAO = ['Em andamento', 'Proposta enviada', 'Ganha', 'Perdida'];
 const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
@@ -643,7 +646,7 @@ VIEWS.dashboard = () => {
   const proximos = ag.atrasados.concat(ag.hoje, ag.amanha).slice(0, 6);
   const ultimas = scoped(S.data.propostas).slice().sort((a, b) => b.dataEmissao.localeCompare(a.dataEmissao)).slice(0, 5);
   return '<div class="page-head greet"><div><h1>' + saud + ', ' + esc(S.user.nome) + '</h1><p>' + scopeLabel() + ' • ' + esc(data) + '</p></div>' +
-    '<div class="page-actions"><button class="btn" data-act="go" data-view="propostas" data-param="nova">' + icon('file') + 'Nova proposta</button>' +
+    '<div class="page-actions"><button class="btn" data-act="proposta-cliente" data-id="">' + icon('file') + 'Nova proposta</button>' +
     '<button class="btn btn-primary" data-act="new-cliente">' + icon('plus') + 'Novo cliente</button></div></div>' +
     '<div class="kpis" id="kpis">' + kpiHtml(d) + '</div>' +
     '<div class="dash-grid">' +
@@ -659,7 +662,7 @@ VIEWS.dashboard = () => {
     (ultimas.length ? '<div class="table-wrap"><table class="tbl responsive"><tbody>' + ultimas.map(p =>
       '<tr class="clickable" data-act="pdf-proposta" data-id="' + esc(p.id) + '"><td class="cell-main"><strong>Nº ' + esc(p.numero) + ' — ' + esc(p.cliente) + '</strong><small>' + fmtDate(p.dataEmissao) + ' • ' + esc(p.tipoOrcamento) + '</small></td>' +
       '<td data-label="Status">' + chip(p.status) + '</td><td data-label="Valor" class="right num nowrap"><strong>' + money(p.valorFinal) + '</strong></td></tr>').join('') + '</tbody></table></div>'
-      : emptyState('Nenhuma proposta ainda', 'Monte a primeira proposta para um cliente.', '<button class="btn" data-act="go" data-view="propostas" data-param="nova">Nova proposta</button>')) + '</section>' +
+      : emptyState('Nenhuma proposta ainda', 'Monte a primeira proposta para um cliente.', '<button class="btn" data-act="proposta-cliente" data-id="">Nova proposta</button>')) + '</section>' +
     '</div>';
 };
 VIEWS.dashboard.after = () => { renderDashboardCharts(); refreshDashboard(); };
@@ -785,6 +788,7 @@ function drawClientes() {
       (fone ? '<button class="btn-icon" data-act="whatsapp" data-id="' + esc(c.id) + '" title="WhatsApp" aria-label="WhatsApp">' + icon('wa') + '</button>' +
         '<a class="btn-icon" data-act="noop" href="tel:' + esc(digits(c.telefone || c.whatsapp)) + '" title="Ligar" aria-label="Ligar">' + icon('phone') + '</a>' : '') +
       '<button class="btn-icon" data-act="new-atividade" data-id="' + esc(c.id) + '" title="Registrar contato" aria-label="Registrar contato">' + icon('history') + '</button>' +
+      '<button class="btn-icon" data-act="proposta-cliente" data-id="' + esc(c.id) + '" title="Fazer orçamento" aria-label="Fazer orçamento">' + icon('file') + '</button>' +
       '</div></td></tr>';
   }).join('');
   $('#cliLista').innerHTML = l.length
@@ -794,7 +798,7 @@ function drawClientes() {
 }
 function exportClientes() {
   const l = filtrarClientes(S.clienteFiltro || {});
-  const cols = [['codigo', 'Código'], ['dataCadastro', 'Data de cadastro'], ['vendedor', 'Vendedor'], ['empresa', 'Empresa'], ['razaoSocial', 'Razão social'], ['documento', 'CPF/CNPJ'], ['contato', 'Contato'], ['cargo', 'Cargo'], ['telefone', 'Telefone'], ['whatsapp', 'WhatsApp'], ['email', 'E-mail'], ['endereco', 'Endereço'], ['numero', 'Número'], ['bairro', 'Bairro'], ['cidade', 'Cidade'], ['estado', 'UF'], ['cep', 'CEP'], ['segmento', 'Segmento'], ['origem', 'Origem'], ['status', 'Status'], ['interesse', 'Interesse'], ['dataProximoContato', 'Próximo contato'], ['obsCliente', 'Observações para o cliente']];
+  const cols = [['codigo', 'Código'], ['dataCadastro', 'Data de cadastro'], ['vendedor', 'Vendedor'], ['empresa', 'Cliente'], ['razaoSocial', 'Razão social'], ['documento', 'CPF/CNPJ'], ['contato', 'Contato'], ['cargo', 'Cargo'], ['telefone', 'Telefone'], ['whatsapp', 'WhatsApp'], ['email', 'E-mail'], ['endereco', 'Endereço'], ['numero', 'Número'], ['bairro', 'Bairro'], ['cidade', 'Cidade'], ['estado', 'UF'], ['cep', 'CEP'], ['segmento', 'Segmento'], ['origem', 'Origem'], ['status', 'Status'], ['interesse', 'Interesse'], ['dataProximoContato', 'Próximo contato'], ['obsCliente', 'Observações para o cliente']];
   downloadFile('clientes_vegas_' + today() + '.csv', toCSV(cols.map(c => c[1]), l.map(c => cols.map(k => c[k[0]]))));
   toast(l.length + ' cliente(s) exportado(s).');
 }
@@ -832,7 +836,7 @@ function drawFicha() {
     '<button class="btn" data-act="edit-cliente" data-id="' + esc(c.id) + '">' + icon('edit') + 'Editar</button>' +
     '<button class="btn" data-act="new-atividade" data-id="' + esc(c.id) + '">' + icon('history') + 'Registrar contato</button>' +
     '<button class="btn" data-act="new-prospeccao" data-id="' + esc(c.id) + '">' + icon('box') + 'Adicionar produto</button>' +
-    '<button class="btn btn-primary" data-act="proposta-cliente" data-id="' + esc(c.id) + '">' + icon('file') + 'Gerar orçamento/PDF</button>' +
+    '<button class="btn btn-primary" data-act="proposta-cliente" data-id="' + esc(c.id) + '">' + icon('file') + 'Fazer orçamento</button>' +
     (fone ? '<button class="btn btn-wa" data-act="whatsapp" data-id="' + esc(c.id) + '">' + icon('wa') + 'WhatsApp</button>' : '') +
     (c.telefone || c.whatsapp ? '<a class="btn" href="tel:' + esc(digits(c.telefone || c.whatsapp)) + '">' + icon('phone') + 'Telefone</a>' : '') +
     ((c.latitude || c.endereco) ? '<a class="btn" target="_blank" rel="noopener" href="' + mapaLink(c) + '">' + icon('pin') + 'Mapa</a>' : '') +
@@ -851,11 +855,11 @@ const dd = (label, v) => '<div><dt>' + label + '</dt><dd>' + (v ? esc(v) : '<spa
 function fichaTab(c, tab, prosp, ativ, props) {
   if (tab === 'resumo') {
     const end = [c.endereco, c.numero, c.complemento].filter(Boolean).join(', ');
-    return '<fieldset class="section"><legend>' + icon('building') + 'Dados da empresa</legend><dl class="dl">' +
-      dd('Nome da empresa', c.empresa) + dd('Razão social', c.razaoSocial) + dd('CPF/CNPJ', c.documento ? maskDoc(c.documento) : '') + dd('Inscrição', c.inscricao) + dd('Segmento', c.segmento) +
+    return '<fieldset class="section"><legend>' + icon('users') + 'Dados do cliente</legend><dl class="dl">' +
+      dd('Nome do cliente', c.empresa) + dd('Razão social', c.razaoSocial) + dd('CPF/CNPJ', c.documento ? maskDoc(c.documento) : '') + dd('Inscrição', c.inscricao) + dd('Segmento', c.segmento) +
       dd('Endereço', end) + dd('Bairro', c.bairro) + dd('Cidade / UF', [c.cidade, c.estado].filter(Boolean).join(' / ')) + dd('CEP', c.cep) + dd('Localização (GPS)', c.latitude ? c.latitude + ', ' + c.longitude : '') + '</dl></fieldset>' +
       '<fieldset class="section"><legend>' + icon('users') + 'Contato</legend><dl class="dl">' +
-      dd('Nome do contato', c.contato) + dd('Cargo', c.cargo) + dd('Telefone', maskPhone(c.telefone)) + dd('WhatsApp', maskPhone(c.whatsapp)) + dd('E-mail', c.email) + '</dl></fieldset>' +
+      dd('Pessoa de contato', c.contato) + dd('Cargo', c.cargo) + dd('Telefone', maskPhone(c.telefone)) + dd('WhatsApp', maskPhone(c.whatsapp)) + dd('E-mail', c.email) + '</dl></fieldset>' +
       '<fieldset class="section"><legend>' + icon('target') + 'Prospecção</legend><dl class="dl">' +
       dd('Vendedor responsável', c.vendedor) + dd('Origem do lead', c.origem) + dd('Status', c.status) + dd('Interesse', c.interesse) + dd('Produto de interesse', c.produtoInteresse) +
       dd('Próximo contato', c.dataProximoContato ? fmtDate(c.dataProximoContato) + (c.proximoContato ? ' — ' + c.proximoContato : '') : '') +
@@ -947,14 +951,14 @@ function openClienteForm(id) {
     '<div class="geo-bar"><button type="button" class="btn" data-geo>' + icon('pin') + 'Usar localização atual</button>' +
     '<span class="geo-status" id="geoStatus">' + (c.latitude ? 'Localização salva: ' + esc(c.latitude) + ', ' + esc(c.longitude) : 'Preenche o endereço pelo GPS do aparelho.') + '</span>' +
     '<input type="hidden" name="latitude" value="' + esc(c.latitude || '') + '"><input type="hidden" name="longitude" value="' + esc(c.longitude || '') + '"></div>' +
-    '<fieldset class="section"><legend>' + icon('building') + 'Dados da empresa</legend><div class="grid g4">' +
-    f('empresa', 'Nome da empresa', 'type="text" autocomplete="organization"', 'span2') + f('razaoSocial', 'Razão social', 'type="text"', 'span2') +
+    '<fieldset class="section"><legend>' + icon('users') + 'Dados do cliente</legend><div class="grid g4">' +
+    f('empresa', 'Nome do cliente', 'type="text" required placeholder="Nome da pessoa ou da empresa"', 'span2') + f('razaoSocial', 'Razão social (se for empresa)', 'type="text"', 'span2') +
     f('documento', 'CPF/CNPJ', 'type="text" inputmode="numeric" data-mask="doc"') + f('inscricao', 'Inscrição estadual', 'type="text"') + sel('segmento', 'Segmento', SEGMENTOS, 'span2') +
     f('cep', 'CEP', 'type="text" inputmode="numeric" data-mask="cep" placeholder="00000-000"') + f('endereco', 'Endereço', 'type="text" autocomplete="address-line1"', 'span2') + f('numero', 'Número', 'type="text"') +
     f('complemento', 'Complemento', 'type="text"') + f('bairro', 'Bairro', 'type="text"') + f('cidade', 'Cidade', 'type="text"') + sel('estado', 'Estado', UFS, '', 'UF') +
     '</div></fieldset>' +
     '<fieldset class="section"><legend>' + icon('users') + 'Contato</legend><div class="grid g4">' +
-    f('contato', 'Nome do contato', 'type="text" autocomplete="name"', 'span2') + f('cargo', 'Cargo', 'type="text"', 'span2') +
+    f('contato', 'Pessoa de contato (se diferente do cliente)', 'type="text" autocomplete="name"', 'span2') + f('cargo', 'Cargo', 'type="text"', 'span2') +
     f('telefone', 'Telefone', 'type="tel" inputmode="tel" data-mask="phone"') + f('whatsapp', 'WhatsApp', 'type="tel" inputmode="tel" data-mask="phone"') + f('email', 'E-mail', 'type="email" autocomplete="email"', 'span2') +
     '</div></fieldset>' +
     '<fieldset class="section"><legend>' + icon('target') + 'Prospecção</legend><div class="grid g4">' +
@@ -985,7 +989,8 @@ function openClienteForm(id) {
     const errs = [];
     $$('.invalid', form).forEach(x => x.classList.remove('invalid'));
     const bad = (n, msg) => { errs.push(msg); const el = $('[name=' + n + ']', form); if (el) el.classList.add('invalid'); };
-    if (!d.empresa && !d.contato) bad('empresa', 'Informe o nome da empresa ou do contato.');
+    if (!d.empresa && d.contato) d.empresa = d.contato;
+    if (!d.empresa) bad('empresa', 'Informe o nome do cliente.');
     if (d.documento && !validaDoc(d.documento)) bad('documento', 'CPF/CNPJ inválido.');
     if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) bad('email', 'E-mail inválido.');
     if (d.telefone && digits(d.telefone).length < 10) bad('telefone', 'Telefone incompleto (inclua o DDD).');
@@ -1522,7 +1527,7 @@ function propostasTable(l, compact = false) {
     l.map(p => '<tr><td class="cell-main"><strong>Nº ' + esc(p.numero) + '</strong>' + (compact ? '' : '<small>' + esc(p.cliente) + '</small>') + '</td>' +
       (compact ? '' : '<td data-label="Cliente">' + esc(p.cliente) + '</td>') +
       '<td data-label="Emissão">' + fmtDate(p.dataEmissao) + '</td><td data-label="Válido até" class="' + (p.validade && p.validade.slice(0, 10) < today() && p.status === 'Enviada' ? 'late' : '') + '">' + fmtDate(p.validade) + '</td>' +
-      '<td data-label="Tipo">' + esc(p.tipoOrcamento) + '</td><td data-label="Valor final" class="right num nowrap"><strong>' + money(p.valorFinal) + '</strong>' + (p.incluirMensal === 'Sim' ? '<br><small class="muted">+ ' + money(p.totalMensal) + '/mês</small>' : '') + '</td>' +
+      '<td data-label="Tipo">' + (normTipo(p.tipoOrcamento) === 'Locado' ? '<span class="tag">Locação</span>' : '<span class="tag">Venda</span>') + '</td><td data-label="Valor final" class="right num nowrap"><strong>' + money(p.valorFinal) + '</strong>' + (p.incluirMensal === 'Sim' ? '<br><small class="muted">+ ' + money(p.totalMensal) + '/mês</small>' : '') + '</td>' +
       '<td data-label="Status"><select class="status-select" data-status-proposta data-id="' + esc(p.id) + '" style="--c:' + propCor(p.status) + '">' + options(STATUS_PROPOSTA, p.status, null) + '</select></td>' +
       (isAdmin() && !compact ? '<td data-label="Vendedor">' + esc(p.vendedor) + '</td>' : '') +
       '<td class="row-actions-cell no-label"><div class="row-actions">' +
@@ -1539,10 +1544,10 @@ VIEWS.propostas = param => {
   const l = scoped(S.data.propostas).filter(p => (!f.status || p.status === f.status) && (!q || norm(p.numero + ' ' + p.cliente + ' ' + p.vendedor).includes(q)))
     .sort((a, b) => b.dataEmissao.localeCompare(a.dataEmissao));
   const total = l.reduce((s, p) => s + num(p.valorFinal), 0);
-  return pageHead('Propostas', scopeLabel() + ' • ' + l.length + ' proposta(s) • ' + money(total), '<button class="btn btn-primary" data-act="go" data-view="propostas" data-param="nova">' + icon('plus') + 'Nova proposta</button>') +
+  return pageHead('Propostas', scopeLabel() + ' • ' + l.length + ' proposta(s) • ' + money(total), '<button class="btn btn-primary" data-act="proposta-cliente" data-id="">' + icon('plus') + 'Nova proposta</button>') +
     '<section class="panel"><div class="toolbar" id="propFiltros"><input type="search" name="q" placeholder="Número, cliente ou vendedor" value="' + esc(f.q) + '"><select name="status">' + options(STATUS_PROPOSTA, f.status, 'Todos os status') + '</select></div>' +
-    (l.length ? propostasTable(l.slice(0, 300)) : emptyState('Nenhuma proposta', 'Crie uma proposta, adicione os produtos e gere o PDF no padrão Vegas.', '<button class="btn btn-primary" data-act="go" data-view="propostas" data-param="nova">Nova proposta</button>')) + '</section>' +
-    '<button class="fab" data-act="go" data-view="propostas" data-param="nova" aria-label="Nova proposta">' + icon('plus') + '</button>';
+    (l.length ? propostasTable(l.slice(0, 300)) : emptyState('Nenhuma proposta', 'Crie uma proposta, adicione os produtos e gere o PDF no padrão Vegas.', '<button class="btn btn-primary" data-act="proposta-cliente" data-id="">Nova proposta</button>')) + '</section>' +
+    '<button class="fab" data-act="proposta-cliente" data-id="" aria-label="Nova proposta">' + icon('plus') + '</button>';
 };
 VIEWS.propostas.after = param => {
   if (param) return propostaEditorBind();
@@ -1553,7 +1558,8 @@ VIEWS.propostas.after = param => {
 
 /** Monta o estado do editor a partir da rota: nova[/clienteId], editar/ID, duplicar/ID */
 function initPropostaState(param) {
-  const [modo, id] = param.split('/');
+  const [modo, idRaw, tipoRota] = param.split('/');
+  const id = idRaw === '-' ? '' : idRaw;
   const cfg = S.data.config || {};
   const base = {
     id: '', clienteId: '', tipoOrcamento: 'Venda', validade: addDays(+cfg.validade_dias || 7), status: 'Enviada', itens: [],
@@ -1563,15 +1569,17 @@ function initPropostaState(param) {
     const p = byId(S.data.propostas, id);
     if (p) {
       Object.assign(base, {
-        id: modo === 'editar' ? p.id : '', numero: modo === 'editar' ? p.numero : '', clienteId: p.clienteId, tipoOrcamento: p.tipoOrcamento,
+        id: modo === 'editar' ? p.id : '', numero: modo === 'editar' ? p.numero : '', clienteId: p.clienteId, tipoOrcamento: normTipo(p.tipoOrcamento),
         validade: modo === 'editar' ? String(p.validade).slice(0, 10) : base.validade, status: modo === 'editar' ? p.status : 'Enviada',
         itens: parseJSON(p.itens, []), desconto: num(p.desconto), descontoTipo: 'R$', incluirMensal: p.incluirMensal === 'Sim',
         valorMensal: num(p.valorMensal), outrosMensal: num(p.outrosMensal), condicoes: parseJSON(p.condicoes, []), obsCliente: p.obsCliente,
         atualizarStatusCliente: modo !== 'editar'
       });
     }
-  } else if (modo === 'nova' && id) {
-    const c = byId(S.data.clientes, id);
+  } else if (modo === 'nova') {
+    base.tipoOrcamento = normTipo(tipoRota);
+    if (base.tipoOrcamento === 'Locado') base.incluirMensal = true;
+    const c = id ? byId(S.data.clientes, id) : null;
     if (c) {
       base.clienteId = c.id;
       base.obsCliente = c.obsCliente || '';
@@ -1579,13 +1587,26 @@ function initPropostaState(param) {
       S.data.prospeccoes.filter(p => p.clienteId === c.id && p.status !== 'Perdida').forEach(p => {
         const pr = byId(S.data.produtos, p.produtoId);
         const qtd = num(p.quantidade) || 1;
-        base.itens.push({ produtoId: p.produtoId, codigo: pr ? pr.codigo : '', descricao: p.produto, tipo: pr ? pr.tipo : 'Produto', unidade: pr ? pr.unidade : 'UN', quantidade: qtd, valorUnitario: pr ? num(pr.preco) : round2(num(p.valor) / qtd), desconto: 0, locado: false });
+        base.itens.push({ produtoId: p.produtoId, codigo: pr ? pr.codigo : '', descricao: p.produto, tipo: pr ? pr.tipo : 'Produto', unidade: pr ? pr.unidade : 'UN', quantidade: qtd, valorUnitario: pr ? num(pr.preco) : round2(num(p.valor) / qtd), desconto: 0, locado: base.tipoOrcamento === 'Locado' });
       });
     }
   }
   S.prop = base;
 }
 const clienteLabel = c => '#' + c.codigo + ' — ' + clienteNome(c) + (c.cidade ? ' (' + c.cidade + ')' : '');
+/** Pergunta se o orçamento do cliente é de venda ou de locação (comodato). */
+function escolherTipoOrcamento(clienteId) {
+  const c = byId(S.data.clientes, clienteId);
+  const opt = (tipo, ic, titulo, texto) => '<button class="tipo-orc" data-act="tipo-orc" data-tipo="' + tipo + '" data-id="' + esc(clienteId || '') + '">' +
+    '<span class="tipo-orc-ico">' + icon(ic) + '</span><span><strong>' + titulo + '</strong><small>' + texto + '</small></span></button>';
+  openModal({
+    title: 'Novo orçamento' + (c ? ' — ' + clienteNome(c) : ''), size: 'sm',
+    body: '<p style="margin-top:0" class="muted">Que tipo de orçamento você vai fazer?</p><div class="tipo-orc-grid">' +
+      opt('Venda', 'money', 'Venda', 'O cliente compra os equipamentos. Os valores dos produtos e serviços aparecem no orçamento.') +
+      opt('Locado', 'sync', 'Locação (comodato)', 'Os equipamentos saem como “Locado”, sem valor. Você informa o aluguel mensal que o cliente vai pagar.') +
+      '</div>'
+  });
+}
 function propostaEditorHtml(param) {
   initPropostaState(param);
   const P = S.prop;
@@ -1596,18 +1617,17 @@ function propostaEditorHtml(param) {
     '<section class="panel"><div class="panel-head"><h2>Cliente e proposta</h2></div><div class="panel-body grid g4">' +
     '<label class="field span2"><span class="req">Cliente</span><input id="pCliente" list="dlCli" value="' + esc(c ? clienteLabel(c) : '') + '" placeholder="Digite o nome ou código do cliente"><datalist id="dlCli">' +
     scoped(S.data.clientes).map(x => '<option value="' + esc(clienteLabel(x)) + '">').join('') + '</datalist><small id="pCliInfo">' + (c ? esc([c.contato, maskPhone(c.whatsapp || c.telefone), c.email].filter(Boolean).join(' • ')) : 'Cliente ainda não cadastrado? Use o botão ao lado.') + '</small></label>' +
-    '<label class="field"><span>Tipo do orçamento</span><input id="pTipo" list="dlTipoOrc" value="' + esc(P.tipoOrcamento) + '"><datalist id="dlTipoOrc">' + TIPOS_ORCAMENTO.map(t => '<option value="' + t + '">').join('') + '</datalist></label>' +
-    '<label class="field"><span>Válido até</span><input type="date" id="pValidade" value="' + esc(P.validade) + '"></label>' +
+    '<label class="field span2"><span>Válido até</span><input type="date" id="pValidade" value="' + esc(P.validade) + '"></label>' +
+    '<div class="field span-all"><span class="field-label">Tipo do orçamento</span><div class="segmented seg-lg" id="pTipo">' +
+    TIPOS_ORCAMENTO.map(t => '<label><input type="radio" name="pTipo" value="' + t.v + '"' + (P.tipoOrcamento === t.v ? ' checked' : '') + '><span>' + icon(t.v === 'Venda' ? 'money' : 'sync') + t.l + '</span></label>').join('') +
+    '</div><small id="pTipoInfo"></small></div>' +
     '<div class="span-all"><button class="btn btn-sm" data-act="new-cliente">' + icon('userplus') + 'Cadastrar novo cliente</button></div></div></section>' +
+    '<div id="pMensalSec"></div>' +
     '<section class="panel"><div class="panel-head"><h2>Produtos e serviços</h2><span class="muted" id="pQtdItens"></span></div><div id="pItens"></div>' +
     '<div class="add-item"><input id="pAddProd" list="dlProdProp" placeholder="Adicionar do catálogo: digite código ou nome"><datalist id="dlProdProp">' +
     S.data.produtos.filter(p => p.status !== 'Inativo').map(p => '<option value="' + esc(produtoLabel(p)) + '">' + esc(p.tipo + ' • ' + money(p.preco)) + '</option>').join('') + '</datalist>' +
     '<button class="btn" data-act="prop-item-livre">' + icon('plus') + 'Item avulso</button></div></section>' +
-    '<section class="panel"><div class="panel-head"><h2>Cobrança mensal</h2><label class="check"><input type="checkbox" id="pMensal"' + (P.incluirMensal ? ' checked' : '') + '> Incluir no orçamento</label></div>' +
-    '<div class="panel-body grid g3" id="pMensalBox"' + (P.incluirMensal ? '' : ' hidden') + '><label class="field"><span>Valor mensal (R$)</span><input id="pVMensal" inputmode="decimal" value="' + moneyInput(P.valorMensal) + '"></label>' +
-    '<label class="field"><span>Outros serviços mensais (R$)</span><input id="pVOutros" inputmode="decimal" value="' + moneyInput(P.outrosMensal) + '"></label>' +
-    '<div class="field"><span>Total da mensalidade</span><strong id="pTotMensal" style="font-size:20px;font-family:var(--font-display)"></strong></div></div></section>' +
-    '<section class="panel"><div class="panel-head"><h2>Condições de pagamento</h2><div class="stat-line"><button class="btn btn-sm" data-act="cond-add" data-tipo="vista">À vista</button><button class="btn btn-sm" data-act="cond-add" data-tipo="3">3x</button><button class="btn btn-sm" data-act="cond-add" data-tipo="10">10x</button><button class="btn btn-sm" data-act="cond-add" data-tipo="">' + icon('plus') + 'Linha</button></div></div>' +
+    '<section class="panel"><div class="panel-head"><h2>Condições de pagamento</h2><div class="stat-line"><button class="btn btn-sm" data-act="cond-add" data-tipo="vista">À vista</button><button class="btn btn-sm" data-act="cond-add" data-tipo="3">3x</button><button class="btn btn-sm" data-act="cond-add" data-tipo="10">10x</button><button class="btn btn-sm" data-act="cond-add" data-tipo="mensal">Mensalidade</button><button class="btn btn-sm" data-act="cond-add" data-tipo="">' + icon('plus') + 'Linha</button></div></div>' +
     '<div class="panel-body"><div class="cond-row muted" style="font-size:12.5px;font-weight:600"><span>Entrada</span><span>Condição</span><span>Parcelas</span><span>Valor final</span><span></span></div><div id="pConds"></div>' +
     '<datalist id="dlEntrada">' + ['A VISTA', 'S', 'E', 'PIX', 'BOLETO', 'CARTÃO'].map(x => '<option value="' + x + '">').join('') + '</datalist><small class="muted">*S: sem entrada • *E: com entrada — como no modelo impresso.</small></div></section>' +
     '<section class="panel"><div class="panel-head"><h2>Observações para o cliente</h2>' + (c && c.obsCliente ? '<button class="btn btn-sm" data-act="prop-obs-cliente">Usar observações do cadastro</button>' : '') + '</div>' +
@@ -1616,7 +1636,8 @@ function propostaEditorHtml(param) {
     '<div><span>Subtotal</span><strong id="tSub" class="num"></strong></div>' +
     '<div style="align-items:center"><span>Desconto</span><span class="input-group" style="width:170px"><input id="pDesc" inputmode="decimal" value="' + moneyInput(P.desconto) + '" style="min-height:36px;text-align:right"><select id="pDescTipo" style="width:66px;min-height:36px;padding:4px 22px 4px 8px">' + options(['R$', '%'], P.descontoTipo, null) + '</select></span></div>' +
     '<div class="muted"><span>Desconto aplicado</span><span id="tDesc" class="num"></span></div>' +
-    '<div class="final"><span>Valor final</span><span id="tFinal" class="num"></span></div></div>' +
+    '<div class="final"><span id="tFinalLbl">Valor final</span><span id="tFinal" class="num"></span></div>' +
+    '<div class="final aluguel" id="tAluguelRow" hidden><span>Aluguel mensal</span><span id="tAluguel" class="num"></span></div></div>' +
     '<div class="grid" style="margin-top:16px"><label class="field"><span>Status da proposta</span><select id="pStatus">' + options(STATUS_PROPOSTA, P.status, null) + '</select></label>' +
     (!P.id ? '<label class="check"><input type="checkbox" id="pAtuStatus"' + (P.atualizarStatusCliente ? ' checked' : '') + '> Registrar no histórico e mover o cliente para “Orçamento enviado”</label>' : '') +
     '<button class="btn" data-act="prop-preview">' + icon('eye') + 'Visualizar PDF</button>' +
@@ -1636,14 +1657,18 @@ function drawPropTotais() {
   $('#tSub').textContent = money(t.subtotal);
   $('#tDesc').textContent = '− ' + money(t.desconto);
   $('#tFinal').textContent = money(t.valorFinal);
-  $('#pTotMensal').textContent = money(t.totalMensal);
+  const loc = S.prop.tipoOrcamento === 'Locado';
+  $('#tFinalLbl').textContent = loc ? 'Itens cobrados à parte' : 'Valor final';
+  $('#tAluguelRow').hidden = !(loc || S.prop.incluirMensal);
+  $('#tAluguel').textContent = money(t.totalMensal) + '/mês';
+  const tm = $('#pTotMensal'); if (tm) tm.textContent = money(t.totalMensal);
   $('#pQtdItens').textContent = S.prop.itens.length + ' item(ns)';
   S.prop.itens.forEach((i, idx) => { const el = $('#itTot' + idx); if (el) el.textContent = i.locado ? 'Locado' : money(i.total); });
 }
 function drawPropItens() {
   const P = S.prop;
   $('#pItens').innerHTML = P.itens.length
-    ? '<div class="table-wrap"><table class="tbl items-tbl responsive"><thead><tr><th>Código</th><th>Descrição</th><th>Tipo</th><th>Qtd.</th><th>Unit. (R$)</th><th>Desc. (R$)</th><th>Locado</th><th class="right">Total</th><th></th></tr></thead><tbody>' +
+    ? '<div class="table-wrap"><table class="tbl items-tbl responsive"><thead><tr><th>Código</th><th>Descrição</th><th>Tipo</th><th>Qtd.</th><th>Unit. (R$)</th><th>Desc. (R$)</th>' + (P.tipoOrcamento === 'Locado' ? '<th title="Marcado = equipamento em comodato (sai como Locado, sem valor)">Comodato</th>' : '') + '<th class="right">Total</th><th></th></tr></thead><tbody>' +
     P.itens.map((i, idx) => '<tr data-idx="' + idx + '">' +
       '<td data-label="Código"><input data-f="codigo" value="' + esc(i.codigo) + '" style="width:86px"></td>' +
       '<td data-label="Descrição"><input data-f="descricao" value="' + esc(i.descricao) + '" style="min-width:180px"></td>' +
@@ -1651,7 +1676,7 @@ function drawPropItens() {
       '<td data-label="Qtd."><input data-f="quantidade" type="number" min="0" step="any" class="w-qtd" value="' + esc(i.quantidade) + '"></td>' +
       '<td data-label="Unit. (R$)"><input data-f="valorUnitario" inputmode="decimal" class="w-money" value="' + moneyInput(i.valorUnitario) + '"' + (i.locado ? ' disabled' : '') + '></td>' +
       '<td data-label="Desc. (R$)"><input data-f="desconto" inputmode="decimal" class="w-money" value="' + moneyInput(i.desconto) + '"' + (i.locado ? ' disabled' : '') + '></td>' +
-      '<td data-label="Locado"><input data-f="locado" type="checkbox" style="width:20px;height:20px"' + (i.locado ? ' checked' : '') + ' aria-label="Item locado"></td>' +
+      (P.tipoOrcamento === 'Locado' ? '<td data-label="Comodato"><input data-f="locado" type="checkbox" style="width:20px;height:20px"' + (i.locado ? ' checked' : '') + ' aria-label="Equipamento em comodato"></td>' : '') +
       '<td data-label="Total" class="right num nowrap"><strong id="itTot' + idx + '"></strong></td>' +
       '<td class="no-label"><button class="btn-icon" data-act="prop-item-del" data-idx="' + idx + '" aria-label="Remover item">' + icon('trash') + '</button></td></tr>').join('') + '</tbody></table></div>'
     : emptyState('Nenhum item', 'Pesquise no catálogo abaixo ou adicione um item avulso.');
@@ -1666,6 +1691,37 @@ function drawPropConds() {
     '<button class="btn-icon" data-act="cond-del" data-ci="' + i + '" aria-label="Remover condição">' + icon('trash') + '</button></div>').join('') ||
     '<p class="muted" style="margin:6px 0 10px">Nenhuma condição. Use os atalhos acima.</p>';
 }
+/** Troca entre Venda e Locação ajustando itens e mensalidade. */
+function setTipoOrcamento(tipo) {
+  const P = S.prop;
+  P.tipoOrcamento = normTipo(tipo);
+  const loc = P.tipoOrcamento === 'Locado';
+  P.itens.forEach(i => { i.locado = loc; });
+  if (loc) P.incluirMensal = true; else if (!num(P.valorMensal) && !num(P.outrosMensal)) P.incluirMensal = false;
+  drawPropMensal();
+  drawPropItens();
+  if (loc && !num(P.valorMensal)) setTimeout(() => { const el = $('#pVMensal'); if (el) el.focus(); }, 50);
+}
+/** Bloco do aluguel (locação) ou da cobrança mensal opcional (venda). */
+function drawPropMensal() {
+  const P = S.prop, loc = P.tipoOrcamento === 'Locado';
+  $('#pTipoInfo').textContent = loc
+    ? 'Equipamentos em comodato: saem no PDF como “Locado”, sem valor. Desmarque “Comodato” no item que for cobrado à parte (ex.: cabos, instalação).'
+    : 'O cliente compra os equipamentos: todos os valores aparecem no orçamento.';
+  const campos = '<label class="field"><span' + (loc ? ' class="req"' : '') + '>' + (loc ? 'Valor do aluguel mensal (R$)' : 'Valor mensal (R$)') + '</span><input id="pVMensal" inputmode="decimal" value="' + moneyInput(P.valorMensal) + '"></label>' +
+    '<label class="field"><span>Outros serviços mensais (R$)</span><input id="pVOutros" inputmode="decimal" value="' + moneyInput(P.outrosMensal) + '" placeholder="Ex.: monitoramento"></label>' +
+    '<div class="field"><span>Total da mensalidade</span><strong id="pTotMensal" style="font-size:20px;font-family:var(--font-display)"></strong></div>';
+  $('#pMensalSec').innerHTML = loc
+    ? '<section class="panel panel-aluguel"><div class="panel-head"><h2>' + icon('sync') + ' Aluguel mensal (comodato)</h2><span class="tag">Obrigatório</span></div>' +
+      '<div class="panel-body grid g3">' + campos + '<small class="muted span-all">Este é o valor que o cliente paga por mês. Sai no PDF em “Cobrança mensal”.</small></div></section>'
+    : '<section class="panel"><div class="panel-head"><h2>Cobrança mensal <span class="muted" style="font-weight:500;font-size:13px">(opcional)</span></h2><label class="check"><input type="checkbox" id="pMensal"' + (P.incluirMensal ? ' checked' : '') + '> Incluir no orçamento</label></div>' +
+      '<div class="panel-body grid g3" id="pMensalBox"' + (P.incluirMensal ? '' : ' hidden') + '>' + campos + '<small class="muted span-all">Use para monitoramento ou manutenção mensal após a venda.</small></div></section>';
+  const chk = $('#pMensal');
+  if (chk) chk.onchange = () => { P.incluirMensal = chk.checked; $('#pMensalBox').hidden = !P.incluirMensal; drawPropTotais(); };
+  $('#pVMensal').oninput = e => { P.valorMensal = num(e.target.value); e.target.classList.remove('invalid'); drawPropTotais(); };
+  $('#pVOutros').oninput = e => { P.outrosMensal = num(e.target.value); drawPropTotais(); };
+  drawPropTotais();
+}
 function propostaEditorBind() {
   const P = S.prop;
   drawPropItens();
@@ -1678,14 +1734,12 @@ function propostaEditorBind() {
     $('#pCliInfo').textContent = c ? [c.contato, maskPhone(c.whatsapp || c.telefone), c.email].filter(Boolean).join(' • ') : 'Cliente não encontrado. Selecione da lista.';
     if (c && !P.obsCliente && c.obsCliente) { P.obsCliente = c.obsCliente; $('#pObs').value = c.obsCliente; }
   });
-  $('#pTipo').oninput = e => { P.tipoOrcamento = e.target.value; };
+  $('#pTipo').addEventListener('change', e => setTipoOrcamento(e.target.value));
+  drawPropMensal();
   $('#pValidade').onchange = e => { P.validade = e.target.value; };
   $('#pStatus').onchange = e => { P.status = e.target.value; };
   $('#pObs').oninput = e => { P.obsCliente = e.target.value; };
   const at = $('#pAtuStatus'); if (at) at.onchange = () => { P.atualizarStatusCliente = at.checked; };
-  $('#pMensal').onchange = e => { P.incluirMensal = e.target.checked; $('#pMensalBox').hidden = !P.incluirMensal; };
-  $('#pVMensal').oninput = e => { P.valorMensal = num(e.target.value); drawPropTotais(); };
-  $('#pVOutros').oninput = e => { P.outrosMensal = num(e.target.value); drawPropTotais(); };
   $('#pDesc').oninput = e => { P.desconto = num(e.target.value); drawPropTotais(); };
   $('#pDescTipo').onchange = e => { P.descontoTipo = e.target.value; drawPropTotais(); };
   const add = $('#pAddProd');
@@ -1694,7 +1748,7 @@ function propostaEditorBind() {
     if (!pr) return;
     const ex = P.itens.find(i => i.produtoId === pr.id);
     if (ex) ex.quantidade = num(ex.quantidade) + 1;
-    else P.itens.push({ produtoId: pr.id, codigo: pr.codigo, descricao: pr.produto, tipo: pr.tipo || 'Produto', unidade: pr.unidade, quantidade: 1, valorUnitario: num(pr.preco), desconto: 0, locado: P.tipoOrcamento === 'Locado' && pr.tipo !== 'Serviço' });
+    else P.itens.push({ produtoId: pr.id, codigo: pr.codigo, descricao: pr.produto, tipo: pr.tipo || 'Produto', unidade: pr.unidade, quantidade: 1, valorUnitario: num(pr.preco), desconto: 0, locado: P.tipoOrcamento === 'Locado' });
     add.value = '';
     drawPropItens();
   });
@@ -1715,7 +1769,8 @@ function propostaEditorBind() {
 function addCondicao(tipo) {
   const t = calcProposta();
   const P = S.prop;
-  if (tipo === 'vista') P.condicoes.push({ entrada: 'A VISTA', condicao: money(t.valorFinal), parcelas: '', valor: t.valorFinal });
+  if (tipo === 'mensal') P.condicoes.push({ entrada: 'S', condicao: P.tipoOrcamento === 'Locado' ? 'ALUGUEL MENSAL (COMODATO)' : 'MENSALIDADE', parcelas: 'MENSAL', valor: t.totalMensal });
+  else if (tipo === 'vista') P.condicoes.push({ entrada: 'A VISTA', condicao: money(t.valorFinal), parcelas: '', valor: t.valorFinal });
   else if (tipo) { const n = +tipo; P.condicoes.push({ entrada: 'S', condicao: 'CARTÃO DE CRÉDITO', parcelas: n + 'x de ' + money(round2(t.valorFinal / n)), valor: t.valorFinal }); }
   else P.condicoes.push({ entrada: '', condicao: '', parcelas: '', valor: t.valorFinal });
   drawPropConds();
@@ -1729,6 +1784,11 @@ async function salvarProposta(gerarPdf) {
   const P = S.prop;
   if (!P.clienteId) { $('#pCliente').classList.add('invalid'); $('#pCliente').focus(); return toast('Selecione o cliente da proposta.', 'err'); }
   if (!P.itens.filter(i => String(i.descricao).trim()).length) return toast('Adicione pelo menos um produto ou serviço.', 'err');
+  if (P.tipoOrcamento === 'Locado' && !(num(P.valorMensal) > 0)) {
+    const el = $('#pVMensal'); if (el) { el.classList.add('invalid'); el.focus(); }
+    return toast('Informe o valor do aluguel mensal que o cliente vai pagar.', 'err');
+  }
+  if (P.tipoOrcamento === 'Venda') P.itens.forEach(i => { i.locado = false; });
   const payload = Object.assign({}, P, { validade: P.validade ? P.validade + ' ' + nowStamp().slice(11) : '' });
   const r = await run(() => api('saveProposta', payload));
   if (!r) return;
@@ -2058,7 +2118,8 @@ const UI = {
   'edit-prospeccao': el => openProspeccaoForm(null, el.dataset.id),
   'delete-prospeccao': el => deleteProspeccao(el.dataset.id),
   whatsapp: el => openWhatsApp(el.dataset.id),
-  'proposta-cliente': el => { modals.slice().forEach(m => closeModal(m)); go('propostas', 'nova/' + el.dataset.id); },
+  'proposta-cliente': el => escolherTipoOrcamento(el.dataset.id),
+  'tipo-orc': el => { const id = el.dataset.id; modals.slice().forEach(m => closeModal(m)); go('propostas', 'nova/' + (id || '-') + '/' + el.dataset.tipo); },
   'pdf-proposta': el => gerarPdfProposta(el.dataset.id),
   'edit-proposta': el => { modals.slice().forEach(m => closeModal(m)); go('propostas', 'editar/' + el.dataset.id); },
   'dup-proposta': el => { modals.slice().forEach(m => closeModal(m)); go('propostas', 'duplicar/' + el.dataset.id); },
