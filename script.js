@@ -22,7 +22,7 @@
 
 /** Cole aqui a URL do App da Web do Apps Script (termina em /exec).
  *  Também é possível informar pela tela de login em "Configurar servidor". */
-const API_URL_PADRAO = '';
+const API_URL_PADRAO = 'https://script.google.com/macros/s/AKfycby1JxZg4Ndwud2Xa5QQXUN1GJFDR5WrhuVDCqViJdqpMk_SEcu7F4nGQFT7lpDYhcdx/exec';
 
 const APP_VERSION = '1.2.0';
 
