@@ -52,7 +52,11 @@ const SCHEMA = {
     ['proximoContato', 'Próximo contato'], ['dataProximoContato', 'Data do próximo contato'],
     ['obsCliente', 'Observações para o cliente'], ['obsInterna', 'Observações internas'],
     ['dataAtualizacao', 'Data da última atualização'], ['atualizadoPor', 'Atualizado por'],
-    ['latitude', 'Latitude'], ['longitude', 'Longitude']
+    ['latitude', 'Latitude'], ['longitude', 'Longitude'],
+    ['inscricaoMunicipal', 'Inscrição municipal'], ['representante', 'Representante legal'],
+    ['representanteCpf', 'CPF do representante'], ['representanteRg', 'RG do representante'],
+    ['representanteCargo', 'Cargo do representante'], ['representanteNacionalidade', 'Nacionalidade do representante'],
+    ['representanteEstadoCivil', 'Estado civil do representante'], ['representanteProfissao', 'Profissão do representante']
   ],
   PRODUTOS: [
     ['id', 'ID'], ['codigo', 'Código'], ['produto', 'Produto'], ['categoria', 'Categoria'],
@@ -400,7 +404,8 @@ function dashboard_(p, user) {
 const CAMPOS_CLIENTE = ['empresa', 'razaoSocial', 'documento', 'inscricao', 'segmento', 'endereco', 'numero',
   'complemento', 'bairro', 'cidade', 'estado', 'cep', 'contato', 'cargo', 'telefone', 'whatsapp', 'email',
   'origem', 'status', 'interesse', 'produtoInteresse', 'proximoContato', 'dataProximoContato', 'obsCliente', 'obsInterna',
-  'latitude', 'longitude'];
+  'latitude', 'longitude', 'inscricaoMunicipal', 'representante', 'representanteCpf', 'representanteRg', 'representanteCargo',
+  'representanteNacionalidade', 'representanteEstadoCivil', 'representanteProfissao'];
 
 function searchClientes_(p, user) {
   const q = normalize_(p.q || '');
@@ -431,6 +436,7 @@ function saveCliente_(p, user) {
     if (!data.status) data.status = 'Novo lead';
     if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) throw new Error('E-mail inválido.');
     if (data.documento && !validaDocumento_(data.documento)) throw new Error('CPF/CNPJ inválido.');
+    if (data.representanteCpf && !(digits_(data.representanteCpf).length === 11 && validaDocumento_(data.representanteCpf))) throw new Error('CPF do representante inválido.');
     if (data.dataProximoContato && !/^\d{4}-\d{2}-\d{2}$/.test(data.dataProximoContato)) throw new Error('Data do próximo contato inválida.');
     ['latitude', 'longitude'].forEach(function (k) { if (data[k] && !/^-?\d{1,3}\.\d+$/.test(data[k])) data[k] = ''; });
 

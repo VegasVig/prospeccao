@@ -10,6 +10,7 @@ Sistema comercial com banco de dados no Google Sheets, instalável como aplicati
 | `style.css` | Visual (tema claro e escuro, responsivo) |
 | `script.js` | Lógica do sistema (telas, formulários, CSV, WhatsApp, localização) |
 | `pdf.js` | Orçamento e relatórios em PDF no padrão do modelo oficial |
+| `contratos.js` | Contratos em PDF a partir dos modelos Word (`assets/contratos/`) |
 | `Code.gs` | Backend no Google Apps Script (banco de dados, login, regras) |
 | `manifest.json` + `sw.js` | Instalação como app no celular (PWA) |
 | `assets/pdf-fundo.jpg` | Papel timbrado extraído do seu PDF de referência |
@@ -129,6 +130,34 @@ Depois:
 Assinatura e contato do PDF usam o **Meu perfil no orçamento** (Configurações): nome completo, código, CPF e e-mail de cada vendedor. O perfil do André já vem igual ao modelo (11529 — ANDRE LUIZ LEAL DA CRUZ).
 
 **Cadastro de cliente:** o campo principal é **Nome do cliente** (pessoa ou empresa). Razão social e pessoa de contato são opcionais.
+
+## 12.1. Contratos em PDF
+
+**Onde:** depois de gerar o PDF do orçamento, a janela mostra, logo abaixo dos botões, a seção **Contrato → Gerar contrato**. Também há o ícone de contrato em cada proposta (lista de propostas e aba Propostas da ficha do cliente).
+
+**Como funciona:**
+1. Escolha o contrato: Câmeras (CFTV) em comodato, Alarme monitorado em comodato, Somente monitoramento, Rastreamento veicular ou Manutenção de CFTV. Cada um tem versão de pessoa física ou jurídica. O sistema já sugere o tipo pelo CPF/CNPJ do cliente.
+2. Informe os dados do contrato: local de assinatura (Volta Redonda ou Niterói), data, prazo em meses e, quando o modelo pedir, dias de retenção das imagens, modalidade com/sem instalação e os veículos do rastreamento.
+3. A **conferência** lista tudo o que o contrato exige, com ✓ ou ✗. **O botão "Baixar contrato em PDF" só é liberado quando todos os campos estiverem preenchidos.** O botão "Completar cadastro do cliente" abre o cadastro já destacando em vermelho o que falta.
+4. O contrato é gerado no papel timbrado Vegas, com o texto integral do modelo. Os equipamentos da proposta entram automaticamente nas tabelas (lista de comodato e valores de reposição), e o valor mensal sai por extenso. A geração fica registrada no histórico do cliente.
+
+**Novos campos no cadastro do cliente** (seção "Dados para contrato"): inscrição municipal, representante legal, CPF, RG, cargo, nacionalidade, estado civil e profissão do representante. O campo RG / Inscrição estadual serve para os dois tipos de cliente.
+
+**Editar o texto dos contratos:** os modelos são arquivos Word em `assets/contratos/`. Abra no Word, altere o texto à vontade, mantenha os campos (ex.: `CLI.NOME`, `Cli.CGCCPF`, `Cli.ValorME`, `CONTR.Prazo`) e substitua o arquivo com o mesmo nome. A lista completa de campos está no topo do arquivo `contratos.js`.
+
+Recursos extras que podem ser usados no Word:
+- `[[PJ|texto]]` aparece só para pessoa jurídica.
+- `[[PF|texto]]` aparece só para pessoa física.
+- `[[OPC|texto]]` aparece só se os campos dentro dele estiverem preenchidos.
+- Se o modelo tiver um campo que o sistema não conhece, a conferência avisa e bloqueia o download.
+
+**Ajustes feitos nos modelos enviados:**
+- As lacunas "____" (valor, prazo, inscrição municipal, representante e data/local) viraram campos preenchidos automaticamente.
+- No contrato de Manutenção de CFTV, os dados da Distribuidora Ligeirinho foram trocados por campos. O endereço residencial do representante saiu do texto.
+- No Alarme PJ, foi corrigido o "CONTRATANTE: CONTRATANTE:" duplicado.
+- Nome, CPF das testemunhas e linhas de assinatura continuam em branco, para preenchimento à mão.
+
+**Depois de atualizar o sistema, rode `setupDatabase()` de novo** no Apps Script para criar as colunas novas na aba CLIENTES. Nenhum dado é apagado.
 
 ## 12. Padrão do PDF de referência
 

@@ -22,9 +22,9 @@
 
 /** Cole aqui a URL do App da Web do Apps Script (termina em /exec).
  *  Também é possível informar pela tela de login em "Configurar servidor". */
-const API_URL_PADRAO = 'https://script.google.com/macros/s/AKfycby1JxZg4Ndwud2Xa5QQXUN1GJFDR5WrhuVDCqViJdqpMk_SEcu7F4nGQFT7lpDYhcdx/exec';
+const API_URL_PADRAO = '';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 const STATUS = [
   'Novo lead', 'Primeiro contato', 'Em negociação', 'Visita agendada', 'Orçamento enviado',
@@ -230,7 +230,8 @@ const ICONS = {
   list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   kanban: '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="9.5" y="4" width="5" height="10" rx="1"/><rect x="16" y="4" width="5" height="13" rx="1"/>',
   money: '<rect x="2.5" y="6" width="19" height="12" rx="1.5"/><circle cx="12" cy="12" r="2.8"/><path d="M6 9.5v.01M18 14.5v.01"/>',
-  history: '<path d="M3 12a9 9 0 103-6.7L3 8"/><path d="M3 3v5h5M12 7.5V12l3.5 2"/>'
+  history: '<path d="M3 12a9 9 0 103-6.7L3 8"/><path d="M3 3v5h5M12 7.5V12l3.5 2"/>',
+  contract: '<path d="M14 3H6.5A1.5 1.5 0 005 4.5v15A1.5 1.5 0 006.5 21h11a1.5 1.5 0 001.5-1.5V8z"/><path d="M14 3v5h5M8.5 12h7M8.5 15h4"/><path d="M8.5 18.5c1-1 1.8-1 2.4 0s1.4 1 2.4 0"/>'
 };
 const icon = (n, cls = '') => '<svg class="i ' + cls + '" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
 
@@ -856,10 +857,10 @@ function fichaTab(c, tab, prosp, ativ, props) {
   if (tab === 'resumo') {
     const end = [c.endereco, c.numero, c.complemento].filter(Boolean).join(', ');
     return '<fieldset class="section"><legend>' + icon('users') + 'Dados do cliente</legend><dl class="dl">' +
-      dd('Nome do cliente', c.empresa) + dd('Razão social', c.razaoSocial) + dd('CPF/CNPJ', c.documento ? maskDoc(c.documento) : '') + dd('Inscrição', c.inscricao) + dd('Segmento', c.segmento) +
+      dd('Nome do cliente', c.empresa) + dd('Razão social', c.razaoSocial) + dd('CPF/CNPJ', c.documento ? maskDoc(c.documento) : '') + dd('RG / Inscrição estadual', c.inscricao) + dd('Inscrição municipal', c.inscricaoMunicipal) + dd('Segmento', c.segmento) +
       dd('Endereço', end) + dd('Bairro', c.bairro) + dd('Cidade / UF', [c.cidade, c.estado].filter(Boolean).join(' / ')) + dd('CEP', c.cep) + dd('Localização (GPS)', c.latitude ? c.latitude + ', ' + c.longitude : '') + '</dl></fieldset>' +
       '<fieldset class="section"><legend>' + icon('users') + 'Contato</legend><dl class="dl">' +
-      dd('Pessoa de contato', c.contato) + dd('Cargo', c.cargo) + dd('Telefone', maskPhone(c.telefone)) + dd('WhatsApp', maskPhone(c.whatsapp)) + dd('E-mail', c.email) + '</dl></fieldset>' +
+      dd('Pessoa de contato', c.contato) + dd('Representante legal', [c.representante, c.representanteCargo].filter(Boolean).join(' — ')) + dd('CPF do representante', c.representanteCpf) + dd('Qualificação do representante', [c.representanteNacionalidade, c.representanteEstadoCivil, c.representanteProfissao, c.representanteRg ? 'RG ' + c.representanteRg : ''].filter(Boolean).join(', ')) + dd('Cargo', c.cargo) + dd('Telefone', maskPhone(c.telefone)) + dd('WhatsApp', maskPhone(c.whatsapp)) + dd('E-mail', c.email) + '</dl></fieldset>' +
       '<fieldset class="section"><legend>' + icon('target') + 'Prospecção</legend><dl class="dl">' +
       dd('Vendedor responsável', c.vendedor) + dd('Origem do lead', c.origem) + dd('Status', c.status) + dd('Interesse', c.interesse) + dd('Produto de interesse', c.produtoInteresse) +
       dd('Próximo contato', c.dataProximoContato ? fmtDate(c.dataProximoContato) + (c.proximoContato ? ' — ' + c.proximoContato : '') : '') +
@@ -942,7 +943,7 @@ async function deleteCliente(id) {
 }
 
 /* ===== 10. Formulários ===== */
-function openClienteForm(id) {
+function openClienteForm(id, opts = {}) {
   const c = id ? byId(S.data.clientes, id) : { status: 'Novo lead', estado: 'RJ', origem: '', usuarioVendedor: S.user.usuario };
   const vendOpts = S.data.usuarios.filter(u => u.status === 'Ativo').map(u => ({ v: u.usuario, l: u.nome }));
   const f = (name, label, attrs = '', cls = '') => '<label class="field ' + cls + '"><span' + (attrs.includes('required') ? ' class="req"' : '') + '>' + label + '</span><input name="' + name + '" value="' + esc(c[name] || '') + '" ' + attrs + '></label>';
@@ -953,7 +954,7 @@ function openClienteForm(id) {
     '<input type="hidden" name="latitude" value="' + esc(c.latitude || '') + '"><input type="hidden" name="longitude" value="' + esc(c.longitude || '') + '"></div>' +
     '<fieldset class="section"><legend>' + icon('users') + 'Dados do cliente</legend><div class="grid g4">' +
     f('empresa', 'Nome do cliente', 'type="text" required placeholder="Nome da pessoa ou da empresa"', 'span2') + f('razaoSocial', 'Razão social (se for empresa)', 'type="text"', 'span2') +
-    f('documento', 'CPF/CNPJ', 'type="text" inputmode="numeric" data-mask="doc"') + f('inscricao', 'Inscrição estadual', 'type="text"') + sel('segmento', 'Segmento', SEGMENTOS, 'span2') +
+    f('documento', 'CPF/CNPJ', 'type="text" inputmode="numeric" data-mask="doc"') + f('inscricao', 'RG (pessoa física) / Inscrição estadual (empresa)', 'type="text"') + sel('segmento', 'Segmento', SEGMENTOS, 'span2') +
     f('cep', 'CEP', 'type="text" inputmode="numeric" data-mask="cep" placeholder="00000-000"') + f('endereco', 'Endereço', 'type="text" autocomplete="address-line1"', 'span2') + f('numero', 'Número', 'type="text"') +
     f('complemento', 'Complemento', 'type="text"') + f('bairro', 'Bairro', 'type="text"') + f('cidade', 'Cidade', 'type="text"') + sel('estado', 'Estado', UFS, '', 'UF') +
     '</div></fieldset>' +
@@ -961,6 +962,13 @@ function openClienteForm(id) {
     f('contato', 'Pessoa de contato (se diferente do cliente)', 'type="text" autocomplete="name"', 'span2') + f('cargo', 'Cargo', 'type="text"', 'span2') +
     f('telefone', 'Telefone', 'type="tel" inputmode="tel" data-mask="phone"') + f('whatsapp', 'WhatsApp', 'type="tel" inputmode="tel" data-mask="phone"') + f('email', 'E-mail', 'type="email" autocomplete="email"', 'span2') +
     '</div></fieldset>' +
+    '<fieldset class="section"><legend>' + icon('contract') + 'Dados para contrato <span class="muted" style="font-weight:500;font-size:13px">(empresa)</span></legend><div class="grid g4">' +
+    f('inscricaoMunicipal', 'Inscrição municipal', 'type="text" placeholder="Número ou ISENTO"') + f('representante', 'Representante legal', 'type="text"', 'span2') + f('representanteCargo', 'Cargo do representante', 'type="text" placeholder="Ex.: Sócio-administrador"') +
+    f('representanteCpf', 'CPF do representante', 'type="text" inputmode="numeric" data-mask="doc"') + f('representanteRg', 'RG do representante', 'type="text"') +
+    '<label class="field"><span>Nacionalidade do representante</span><input name="representanteNacionalidade" list="dlNac" value="' + esc(c.representanteNacionalidade || '') + '" placeholder="Ex.: brasileiro"><datalist id="dlNac"><option value="brasileiro"><option value="brasileira"></datalist></label>' +
+    sel('representanteEstadoCivil', 'Estado civil do representante', ['solteiro(a)', 'casado(a)', 'divorciado(a)', 'viúvo(a)', 'separado(a)', 'em união estável']) +
+    f('representanteProfissao', 'Profissão do representante', 'type="text" placeholder="Ex.: empresário"', 'span2') +
+    '<small class="muted span2" style="align-self:end">Exigidos nos contratos de pessoa jurídica.</small></div></fieldset>' +
     '<fieldset class="section"><legend>' + icon('target') + 'Prospecção</legend><div class="grid g4">' +
     (isAdmin() ? '<label class="field"><span>Vendedor responsável</span><select name="usuarioVendedor">' + options(vendOpts, c.usuarioVendedor || S.user.usuario, null) + '</select></label>'
       : '<label class="field"><span>Vendedor responsável</span><input type="text" value="' + esc(c.vendedor || S.user.nome) + '" readonly></label>') +
@@ -981,6 +989,13 @@ function openClienteForm(id) {
   const form = $('#cliForm', m);
   $$('[data-mask]', form).forEach(el => { el.value = applyMask(el.dataset.mask, el.value); });
   $('[name=cep]', form).addEventListener('blur', () => buscaCEP(form));
+  // Veio da tela de contrato: destaca o que falta preencher
+  if (opts.destacar && opts.destacar.length) {
+    opts.destacar.forEach(n => { const el = $('[name=' + n + ']', form); if (el) el.classList.add('invalid'); });
+    const el0 = $('[name=' + opts.destacar[0] + ']', form);
+    if (el0) setTimeout(() => { el0.scrollIntoView({ block: 'center' }); el0.focus(); }, 80);
+    form.addEventListener('input', e => { if (e.target.value.trim()) e.target.classList.remove('invalid'); });
+  }
   $('[data-geo]', m).onclick = () => geoFill(form, true);
   // Novo cadastro: busca a localização automaticamente (o vendedor normalmente está no local)
   if (!id) geoFill(form, false);
@@ -995,6 +1010,7 @@ function openClienteForm(id) {
     if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) bad('email', 'E-mail inválido.');
     if (d.telefone && digits(d.telefone).length < 10) bad('telefone', 'Telefone incompleto (inclua o DDD).');
     if (d.whatsapp && digits(d.whatsapp).length < 10) bad('whatsapp', 'WhatsApp incompleto (inclua o DDD).');
+    if (d.representanteCpf && !(digits(d.representanteCpf).length === 11 && validaDoc(d.representanteCpf))) bad('representanteCpf', 'CPF do representante inválido.');
     if (errs.length) { toast(errs[0], 'err'); const el = $('.invalid', form); if (el) el.focus(); return; }
     d.documento = digits(d.documento) ? maskDoc(d.documento) : '';
     d.id = id || '';
@@ -1006,6 +1022,7 @@ function openClienteForm(id) {
       toast(id ? 'Cliente atualizado com sucesso.' : 'Cliente cadastrado com sucesso.');
       if (S.ficha) S.ficha.hist = null;
       refreshAll();
+      if (opts.onSaved) { opts.onSaved(r); return; }
       if (!id && S.route.view === 'propostas' && S.route.param && S.prop) {
         // Cadastro feito a partir do editor de proposta: já seleciona o cliente
         S.prop.clienteId = r.id;
@@ -1533,6 +1550,7 @@ function propostasTable(l, compact = false) {
       '<td class="row-actions-cell no-label"><div class="row-actions">' +
       '<button class="btn-icon" data-act="pdf-proposta" data-id="' + esc(p.id) + '" title="Gerar PDF" aria-label="Gerar PDF">' + icon('file') + '</button>' +
       '<button class="btn-icon" data-act="edit-proposta" data-id="' + esc(p.id) + '" title="Editar" aria-label="Editar">' + icon('edit') + '</button>' +
+      '<button class="btn-icon" data-act="contrato-proposta" data-id="' + esc(p.id) + '" title="Gerar contrato" aria-label="Gerar contrato">' + icon('contract') + '</button>' +
       '<button class="btn-icon" data-act="dup-proposta" data-id="' + esc(p.id) + '" title="Duplicar" aria-label="Duplicar">' + icon('copy') + '</button>' +
       '<button class="btn-icon" data-act="delete-proposta" data-id="' + esc(p.id) + '" title="Excluir" aria-label="Excluir">' + icon('trash') + '</button></div></td></tr>').join('') +
     '</tbody></table></div>';
@@ -1834,13 +1852,154 @@ function showPdfActions(doc, nome, cliente, prop) {
       '<div class="grid"><button class="btn btn-primary btn-lg" data-dl>' + icon('download') + 'Baixar PDF</button>' +
       '<button class="btn btn-lg" data-open>' + icon('eye') + 'Abrir PDF</button>' +
       (canShare ? '<button class="btn btn-lg" data-share>' + icon('share') + 'Compartilhar arquivo</button>' : '') +
-      (fone && cliente.id ? '<button class="btn btn-lg btn-wa" data-wa>' + icon('wa') + 'Mensagem no WhatsApp</button>' : '') + '</div>'
+      (fone && cliente.id ? '<button class="btn btn-lg btn-wa" data-wa>' + icon('wa') + 'Mensagem no WhatsApp</button>' : '') + '</div>' +
+      (prop.id ? '<div class="ct-cta"><div><strong>Contrato</strong><small>Gere o contrato preenchido com os dados deste cliente e desta proposta.</small></div>' +
+        '<button class="btn btn-lg" data-contrato>' + icon('contract') + 'Gerar contrato</button></div>' : '')
   });
+  const bc = $('[data-contrato]', m);
+  if (bc) bc.onclick = () => { closeModal(m); openContratoModal(prop.id); };
   $('[data-dl]', m).onclick = () => { downloadFile(nome, blob); toast('PDF baixado.'); };
   $('[data-open]', m).onclick = () => { const u = URL.createObjectURL(blob); window.open(u, '_blank'); setTimeout(() => URL.revokeObjectURL(u), 60000); };
   if (canShare) $('[data-share]', m).onclick = () => navigator.share({ files: [file], title: nome, text: 'Orçamento Vegas Vigilância Nº ' + prop.numero }).catch(() => {});
   const wa = $('[data-wa]', m);
   if (wa) wa.onclick = () => { closeModal(m); openWhatsApp(cliente.id, fillMsg(MSG_WHATSAPP[2].texto, cliente) + ' (Orçamento Nº ' + prop.numero + ', valor ' + money(prop.valorFinal) + ')'); };
+}
+/* ===== 9.8.1 Contratos ===== */
+/** Unidade que assina: Niterói para a região metropolitana, Volta Redonda para o restante. */
+function localPadrao(c) {
+  return /niteroi|sao goncalo|marica|rio de janeiro|itaborai|duque de caxias|nova iguacu/.test(norm(c && c.cidade)) ? 'Niterói' : 'Volta Redonda';
+}
+function openContratoModal(propId) {
+  const reg = byId(S.data.propostas, propId);
+  if (!reg) return toast('Proposta não encontrada.', 'err');
+  if (!window.VegasContratos) return toast('O módulo de contratos ainda está carregando. Tente em instantes.', 'warn');
+  const VC = window.VegasContratos;
+  const prop = Object.assign({}, reg, { itens: parseJSON(reg.itens, []), condicoes: parseJSON(reg.condicoes, []) });
+  const cli = () => byId(S.data.clientes, reg.clienteId) || { empresa: reg.cliente };
+  const docLen = digits(cli().documento).length;
+  const pessoaCli = docLen === 14 ? 'PJ' : docLen === 11 ? 'PF' : '';
+  const sugerido = VC.CONTRATOS.find(ct => ct.pessoa === pessoaCli) || VC.CONTRATOS[0];
+  const st = { def: null, res: null, params: { prazo: '', local: localPadrao(cli()), data: today(), dias: '', instalacao: '', veiculos: [{ placa: '', modelo: '', ano: '', cor: '', chassi: '', renavam: '' }] } };
+  const grupos = [...new Set(VC.CONTRATOS.map(ct => ct.grupo))];
+  const body =
+    '<p class="muted" style="margin-top:0">Orçamento Nº ' + esc(reg.numero) + ' • ' + esc(clienteNome(cli())) + (pessoaCli ? ' • ' + (pessoaCli === 'PJ' ? 'Pessoa jurídica (CNPJ)' : 'Pessoa física (CPF)') : ' • CPF/CNPJ não informado') + '</p>' +
+    '<div class="field-label" style="margin-bottom:8px">1. Escolha o contrato</div><div class="ct-lista">' +
+    grupos.map(g => '<div class="ct-grupo"><strong>' + esc(g) + '</strong><div class="segmented">' +
+      VC.CONTRATOS.filter(ct => ct.grupo === g).map(ct => {
+        const incompat = pessoaCli && ct.pessoa !== 'AMBOS' && ct.pessoa !== pessoaCli;
+        return '<label' + (incompat ? ' class="ct-dim" title="O cliente é ' + (pessoaCli === 'PJ' ? 'pessoa jurídica' : 'pessoa física') + '"' : '') + '><input type="radio" name="ct" value="' + ct.id + '"><span>' + esc(VC.PESSOA_LBL[ct.pessoa]) + '</span></label>';
+      }).join('') + '</div></div>').join('') + '</div>' +
+    '<div id="ctParams"></div><div id="ctCheck"></div>';
+  const m = openModal({
+    title: 'Gerar contrato', size: 'lg', body,
+    foot: '<button class="btn" data-close>Cancelar</button><button class="btn" data-editcli hidden>' + icon('edit') + 'Completar cadastro do cliente</button>' +
+      '<button class="btn" data-editprop hidden>' + icon('file') + 'Ajustar proposta</button>' +
+      '<button class="btn btn-primary" data-gerar disabled>' + icon('download') + 'Baixar contrato em PDF</button>'
+  });
+  const avaliar = async () => {
+    if (!st.def) return;
+    $('#ctCheck', m).innerHTML = '<p class="muted">Lendo o modelo do contrato…</p>';
+    try {
+      st.res = await VC.preparar(st.def, cli(), prop, st.params);
+    } catch (e) { $('#ctCheck', m).innerHTML = '<p class="late">' + esc(e.message) + '</p>'; return; }
+    desenharParams();
+    desenharCheck();
+  };
+  const desenharParams = () => {
+    const pz = st.res.precisa, P = st.params;
+    let h = '<div class="field-label" style="margin:18px 0 8px">2. Dados do contrato</div><div class="grid g4" id="ctForm">' +
+      '<label class="field"><span>Local de assinatura</span><select name="local">' + options(['Volta Redonda', 'Niterói'], P.local, null) + '</select></label>' +
+      '<label class="field"><span>Data do contrato</span><input type="date" name="data" value="' + esc(P.data) + '"></label>' +
+      (pz.prazo ? '<label class="field"><span class="req">Prazo (meses)</span><input type="number" min="1" step="1" name="prazo" value="' + esc(P.prazo) + '"></label>' : '') +
+      (pz.dias ? '<label class="field"><span class="req">Retenção das imagens (dias)</span><input type="number" min="1" step="1" name="dias" value="' + esc(P.dias) + '" placeholder="Ex.: 30"></label>' : '') +
+      (pz.instalacao ? '<div class="field span2"><span class="field-label req">Modalidade de instalação</span><div class="segmented">' +
+        [['com', 'Com instalação'], ['sem', 'Sem instalação']].map(o => '<label><input type="radio" name="instalacao" value="' + o[0] + '"' + (P.instalacao === o[0] ? ' checked' : '') + '><span>' + o[1] + '</span></label>').join('') + '</div></div>' : '') +
+      '</div>';
+    if (pz.veiculos) {
+      h += '<div class="field-label" style="margin:16px 0 8px">Veículos a rastrear</div><div id="ctVeic">' +
+        P.veiculos.map((v, i) => '<div class="ct-veic" data-vi="' + i + '">' +
+          [['placa', 'Placa *'], ['modelo', 'Marca / modelo *'], ['ano', 'Ano'], ['cor', 'Cor'], ['chassi', 'Chassi'], ['renavam', 'Renavam']].map(f =>
+            '<input data-v="' + f[0] + '" placeholder="' + f[1] + '" value="' + esc(v[f[0]]) + '" aria-label="' + f[1] + '">').join('') +
+          '<button class="btn-icon" data-vdel="' + i + '" aria-label="Remover veículo">' + icon('trash') + '</button></div>').join('') +
+        '</div><button class="btn btn-sm" data-vadd style="margin-top:6px">' + icon('plus') + 'Adicionar veículo</button>';
+    }
+    const box = $('#ctParams', m);
+    const foco = document.activeElement && box.contains(document.activeElement) ? [document.activeElement.name || document.activeElement.dataset.v, document.activeElement.closest('[data-vi]') ? document.activeElement.closest('[data-vi]').dataset.vi : null] : null;
+    box.innerHTML = h;
+    if (foco) { const sel = foco[1] != null ? '[data-vi="' + foco[1] + '"] [data-v="' + foco[0] + '"]' : '[name="' + foco[0] + '"]'; const el = $(sel, box); if (el) { el.focus(); if (el.setSelectionRange && el.type !== 'number' && el.type !== 'date') el.setSelectionRange(el.value.length, el.value.length); } }
+  };
+  const desenharCheck = () => {
+    const r = st.res;
+    const grupo = { cliente: 'Cadastro do cliente', proposta: 'Proposta', contrato: 'Dados do contrato', modelo: 'Modelo do contrato' };
+    const faltaCli = r.pend.filter(x => x.onde === 'cliente' && !x.ok);
+    const faltaProp = r.pend.filter(x => x.onde === 'proposta' && !x.ok);
+    $('#ctCheck', m).innerHTML = '<div class="field-label" style="margin:18px 0 8px">3. Conferência — todos os campos precisam estar preenchidos</div><div class="ct-check">' +
+      Object.keys(grupo).filter(g => r.pend.some(x => x.onde === g)).map(g => '<div><strong>' + grupo[g] + '</strong><ul>' +
+        r.pend.filter(x => x.onde === g).map(x => '<li class="' + (x.ok ? 'ok' : 'nok') + '">' + icon(x.ok ? 'check' : 'x') + '<span>' + esc(x.label) + (x.erro ? ' <small>' + esc(x.erro) + '</small>' : '') + '</span></li>').join('') +
+        '</ul></div>').join('') + '</div>' +
+      '<p class="ct-status ' + (r.ok ? 'ok' : 'nok') + '">' + (r.ok ? icon('check') + ' Tudo preenchido. O contrato pode ser baixado.' : icon('alert') + ' Faltam ' + r.pend.filter(x => !x.ok).length + ' item(ns). O download fica liberado quando tudo estiver preenchido.') + '</p>';
+    $('[data-gerar]', m).disabled = !r.ok;
+    const be = $('[data-editcli]', m); be.hidden = !faltaCli.length;
+    be.onclick = () => openClienteForm(cli().id, { destacar: [...new Set(faltaCli.map(x => x.campo).filter(Boolean))], onSaved: () => avaliar() });
+    const bp = $('[data-editprop]', m); bp.hidden = !faltaProp.length;
+    bp.onclick = () => { modals.slice().forEach(x => closeModal(x)); go('propostas', 'editar/' + reg.id); };
+  };
+  const reavaliar = debounce(avaliar, 250);
+  m.addEventListener('change', e => {
+    if (e.target.name === 'ct') {
+      st.def = VC.CONTRATOS.find(ct => ct.id === e.target.value);
+      if (!st.params.prazo) st.params.prazo = String(st.def.prazo || 12);
+      avaliar();
+    } else if (e.target.closest('#ctForm')) { st.params[e.target.name] = e.target.value; reavaliar(); }
+  });
+  m.addEventListener('input', e => {
+    const f = e.target.closest('#ctForm [name]');
+    if (f && f.type !== 'radio') { st.params[f.name] = f.value; reavaliar(); return; }
+    const v = e.target.closest('[data-v]');
+    if (v) { st.params.veiculos[+v.closest('[data-vi]').dataset.vi][v.dataset.v] = v.value; reavaliar(); }
+  });
+  m.addEventListener('click', e => {
+    if (e.target.closest('[data-vadd]')) { st.params.veiculos.push({ placa: '', modelo: '', ano: '', cor: '', chassi: '', renavam: '' }); avaliar(); }
+    const d = e.target.closest('[data-vdel]');
+    if (d) { st.params.veiculos.splice(+d.dataset.vdel, 1); if (!st.params.veiculos.length) st.params.veiculos.push({ placa: '', modelo: '' }); avaliar(); }
+  });
+  $('[data-gerar]', m).onclick = async () => {
+    await avaliar();
+    if (!st.res || !st.res.ok) return toast('Preencha todos os campos obrigatórios do contrato.', 'err');
+    if (!window.jspdf) return toast('O gerador de PDF ainda está carregando.', 'warn');
+    loading(true);
+    try {
+      const nomeCli = clienteNome(cli());
+      const titulo = 'Contrato — ' + st.def.grupo + ' — ' + nomeCli;
+      const doc = await VC.gerarPDF(st.res, titulo);
+      const nome = 'Contrato_' + st.def.id + '_' + nomeCli.replace(/[^\w]+/g, '_').slice(0, 40) + '.pdf';
+      closeModal(m);
+      mostrarArquivoPdf(doc, nome, 'Contrato pronto', 'Contrato de ' + st.def.grupo.toLowerCase() + ' (' + VC.PESSOA_LBL[st.def.pessoa].toLowerCase() + ') preenchido com os dados do cliente.');
+      const c = cli();
+      run(() => api('saveAtividade', { clienteId: c.id, tipo: 'Outro', data: nowStamp(), descricao: 'Contrato gerado: ' + st.def.grupo + ' — ' + VC.PESSOA_LBL[st.def.pessoa] + ' (Orçamento Nº ' + reg.numero + ', prazo ' + (st.params.prazo || '-') + ' meses).', dataProximoContato: c.dataProximoContato, proximoContato: c.proximoContato }, { silent: true }))
+        .then(x => { if (x) { S.data.atividades.unshift(x.atividade); upsert(S.data.clientes, x.cliente); } });
+    } catch (e) {
+      console.error(e);
+      toast('Não foi possível gerar o contrato: ' + e.message, 'err');
+    } finally { loading(false); }
+  };
+  // Pré-seleciona o contrato compatível com o cliente
+  const radio = $('input[name=ct][value="' + sugerido.id + '"]', m);
+  if (radio && pessoaCli) { radio.checked = true; st.def = sugerido; st.params.prazo = String(sugerido.prazo || 12); avaliar(); }
+}
+/** Janela padrão de download/compartilhamento de um PDF. */
+function mostrarArquivoPdf(doc, nome, titulo, texto) {
+  const blob = doc.output('blob');
+  const file = typeof File === 'function' ? new File([blob], nome, { type: 'application/pdf' }) : null;
+  const canShare = file && navigator.canShare && navigator.canShare({ files: [file] });
+  const m = openModal({
+    title: titulo, size: 'sm',
+    body: '<p style="margin-top:0">' + esc(texto) + '</p><div class="grid"><button class="btn btn-primary btn-lg" data-dl>' + icon('download') + 'Baixar PDF</button>' +
+      '<button class="btn btn-lg" data-open>' + icon('eye') + 'Abrir PDF</button>' + (canShare ? '<button class="btn btn-lg" data-share>' + icon('share') + 'Compartilhar arquivo</button>' : '') + '</div>'
+  });
+  $('[data-dl]', m).onclick = () => { downloadFile(nome, blob); toast('PDF baixado.'); };
+  $('[data-open]', m).onclick = () => { const u = URL.createObjectURL(blob); window.open(u, '_blank'); setTimeout(() => URL.revokeObjectURL(u), 60000); };
+  if (canShare) $('[data-share]', m).onclick = () => navigator.share({ files: [file], title: nome }).catch(() => {});
 }
 async function deleteProposta(id) {
   const p = byId(S.data.propostas, id);
@@ -2124,6 +2283,7 @@ const UI = {
   'edit-proposta': el => { modals.slice().forEach(m => closeModal(m)); go('propostas', 'editar/' + el.dataset.id); },
   'dup-proposta': el => { modals.slice().forEach(m => closeModal(m)); go('propostas', 'duplicar/' + el.dataset.id); },
   'delete-proposta': el => deleteProposta(el.dataset.id),
+  'contrato-proposta': el => openContratoModal(el.dataset.id),
   'prop-item-livre': () => { S.prop.itens.push({ produtoId: '', codigo: '', descricao: '', tipo: 'Produto', unidade: 'UN', quantidade: 1, valorUnitario: 0, desconto: 0, locado: false }); drawPropItens(); const l = $$('#pItens [data-f=descricao]').pop(); if (l) l.focus(); },
   'prop-item-del': el => { S.prop.itens.splice(+el.dataset.idx, 1); drawPropItens(); },
   'cond-add': el => addCondicao(el.dataset.tipo),

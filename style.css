@@ -454,6 +454,32 @@ select.status-select { min-height: 34px; padding: 4px 30px 4px 10px; font-size: 
 .panel-aluguel .panel-head h2 { display: flex; align-items: center; gap: 8px; }
 .totals .final.aluguel { border-top: 0; padding-top: 0; margin-top: 0; color: var(--red); font-size: 20px; }
 
+/* Contratos */
+.ct-cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.ct-cta strong { display: block; font-family: var(--font-display); font-size: 16px; }
+.ct-cta small { display: block; color: var(--muted); font-size: 13px; }
+.ct-cta .btn { flex: 1 1 100%; }
+.ct-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ct-grupo { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; background: var(--surface-2); display: grid; gap: 10px; }
+.ct-grupo strong { font-size: 14px; }
+.ct-dim span { opacity: .45; }
+.ct-check { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; }
+.ct-check ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.ct-check li { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.ct-check li small { display: block; color: var(--red); }
+.ct-check li.ok svg { color: #1f9d55; }
+.ct-check li.nok { color: var(--text); font-weight: 600; }
+.ct-check li.nok svg { color: var(--red); }
+.ct-status { margin: 16px 0 0; padding: 10px 12px; border-radius: var(--radius-s); display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.ct-status.ok { background: rgba(31,157,85,.12); color: #1f9d55; }
+.ct-status.nok { background: var(--red-soft); color: var(--red); }
+.ct-veic { display: grid; grid-template-columns: 1fr 1.6fr .7fr .8fr 1.3fr 1.1fr 40px; gap: 6px; margin-bottom: 6px; }
+.ct-veic > * { min-width: 0; }
+@media (max-width: 720px) {
+  .ct-lista { grid-template-columns: 1fr; }
+  .ct-veic { grid-template-columns: 1fr 1fr; padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+}
+
 /* ---------- 15. Importação CSV ---------- */
 .dropzone {
   display: grid; place-items: center; gap: 10px; text-align: center; padding: 42px 20px;
