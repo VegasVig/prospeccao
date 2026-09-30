@@ -136,7 +136,7 @@ Assinatura e contato do PDF usam o **Meu perfil no orçamento** (Configurações
 **Onde:** depois de gerar o PDF do orçamento, a janela mostra, logo abaixo dos botões, a seção **Contrato → Gerar contrato**. Também há o ícone de contrato em cada proposta (lista de propostas e aba Propostas da ficha do cliente).
 
 **Como funciona:**
-1. Escolha o contrato: Câmeras (CFTV) em comodato, Alarme monitorado em comodato, Somente monitoramento, Rastreamento veicular ou Manutenção de CFTV. Cada um tem versão de pessoa física ou jurídica. O sistema já sugere o tipo pelo CPF/CNPJ do cliente.
+1. Escolha o contrato: Câmeras (CFTV) em comodato, Alarme monitorado em comodato, Somente monitoramento, Rastreamento veicular, Manutenção de CFTV ou **Aditivo de equipamentos**. Cada um tem versão de pessoa física ou jurídica. O sistema já sugere o tipo pelo CPF/CNPJ do cliente.
 2. Informe os dados do contrato: local de assinatura (Volta Redonda ou Niterói), data, prazo em meses e, quando o modelo pedir, dias de retenção das imagens, modalidade com/sem instalação e os veículos do rastreamento.
 3. A **conferência** lista tudo o que o contrato exige, com ✓ ou ✗. **O botão "Baixar contrato em PDF" só é liberado quando todos os campos estiverem preenchidos.** O botão "Completar cadastro do cliente" abre o cadastro já destacando em vermelho o que falta.
 4. O contrato é gerado no papel timbrado Vegas, com o texto integral do modelo. Os equipamentos da proposta entram automaticamente nas tabelas (lista de comodato e valores de reposição), e o valor mensal sai por extenso. A geração fica registrada no histórico do cliente.
@@ -155,6 +155,7 @@ Recursos extras que podem ser usados no Word:
 - As lacunas "____" (valor, prazo, inscrição municipal, representante e data/local) viraram campos preenchidos automaticamente.
 - No contrato de Manutenção de CFTV, os dados da Distribuidora Ligeirinho foram trocados por campos. O endereço residencial do representante saiu do texto.
 - No Alarme PJ, foi corrigido o "CONTRATANTE: CONTRATANTE:" duplicado.
+- **Aditivo:** o número do aditivo (1º, 2º...) é informado na hora de gerar. A tabela recebe os equipamentos da proposta, com o nº de itens e o total de comodato calculados automaticamente. O acréscimo mensal vem do valor mensal da proposta, por extenso. Os dados da Rede Premium do exemplo viraram campos. Serve para cliente pessoa física ou jurídica.
 - Nome, CPF das testemunhas e linhas de assinatura continuam em branco, para preenchimento à mão.
 
 **Depois de atualizar o sistema, rode `setupDatabase()` de novo** no Apps Script para criar as colunas novas na aba CLIENTES. Nenhum dado é apagado.

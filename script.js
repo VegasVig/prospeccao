@@ -24,7 +24,7 @@
  *  Também é possível informar pela tela de login em "Configurar servidor". */
 const API_URL_PADRAO = 'https://script.google.com/macros/s/AKfycbwonu0cMaQlxrkUtDHlKq_HS-hWWBuMbk7cQHJkgYIcryDKD071Yq-2UBw32KrYI7JH/exec';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 const STATUS = [
   'Novo lead', 'Primeiro contato', 'Em negociação', 'Visita agendada', 'Orçamento enviado',
@@ -1879,7 +1879,7 @@ function openContratoModal(propId) {
   const docLen = digits(cli().documento).length;
   const pessoaCli = docLen === 14 ? 'PJ' : docLen === 11 ? 'PF' : '';
   const sugerido = VC.CONTRATOS.find(ct => ct.pessoa === pessoaCli) || VC.CONTRATOS[0];
-  const st = { def: null, res: null, params: { prazo: '', local: localPadrao(cli()), data: today(), dias: '', instalacao: '', veiculos: [{ placa: '', modelo: '', ano: '', cor: '', chassi: '', renavam: '' }] } };
+  const st = { def: null, res: null, params: { numAditivo: '', prazo: '', local: localPadrao(cli()), data: today(), dias: '', instalacao: '', veiculos: [{ placa: '', modelo: '', ano: '', cor: '', chassi: '', renavam: '' }] } };
   const grupos = [...new Set(VC.CONTRATOS.map(ct => ct.grupo))];
   const body =
     '<p class="muted" style="margin-top:0">Orçamento Nº ' + esc(reg.numero) + ' • ' + esc(clienteNome(cli())) + (pessoaCli ? ' • ' + (pessoaCli === 'PJ' ? 'Pessoa jurídica (CNPJ)' : 'Pessoa física (CPF)') : ' • CPF/CNPJ não informado') + '</p>' +
@@ -1910,6 +1910,7 @@ function openContratoModal(propId) {
     let h = '<div class="field-label" style="margin:18px 0 8px">2. Dados do contrato</div><div class="grid g4" id="ctForm">' +
       '<label class="field"><span>Local de assinatura</span><select name="local">' + options(['Volta Redonda', 'Niterói'], P.local, null) + '</select></label>' +
       '<label class="field"><span>Data do contrato</span><input type="date" name="data" value="' + esc(P.data) + '"></label>' +
+      (pz.numAditivo ? '<label class="field"><span class="req">Número do aditivo</span><input type="number" min="1" step="1" name="numAditivo" value="' + esc(P.numAditivo) + '" placeholder="Ex.: 2 (2º aditivo)"></label>' : '') +
       (pz.prazo ? '<label class="field"><span class="req">Prazo (meses)</span><input type="number" min="1" step="1" name="prazo" value="' + esc(P.prazo) + '"></label>' : '') +
       (pz.dias ? '<label class="field"><span class="req">Retenção das imagens (dias)</span><input type="number" min="1" step="1" name="dias" value="' + esc(P.dias) + '" placeholder="Ex.: 30"></label>' : '') +
       (pz.instalacao ? '<div class="field span2"><span class="field-label req">Modalidade de instalação</span><div class="segmented">' +

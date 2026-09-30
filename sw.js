@@ -4,14 +4,14 @@
    Os dados SEMPRE vêm do Google Sheets: chamadas ao Apps Script não são cacheadas.
    Ao publicar uma nova versão, altere CACHE para forçar a atualização.
    ========================================================================== */
-const CACHE = 'vegas-prospeccao-v1.2.0';
+const CACHE = 'vegas-prospeccao-v1.3.0';
 const APP_SHELL = [
   './', './index.html', './style.css', './script.js', './pdf.js', './contratos.js', './manifest.json',
   './assets/logo-branca.png', './assets/logo-escura.png', './assets/pdf-fundo.jpg', './assets/login-fundo.jpg', './assets/login-fundo-blur.jpg',
   './assets/fonts/Carlito-Regular.ttf', './assets/fonts/Carlito-Bold.ttf', './assets/fonts/Carlito-Italic.ttf', './assets/fonts/Carlito-BoldItalic.ttf',
   './assets/fonts/Caladea-Regular.ttf', './assets/fonts/Caladea-Bold.ttf', './assets/fonts/Caladea-Italic.ttf', './assets/fonts/Caladea-BoldItalic.ttf',
   './assets/contratos/camera_pf.docx', './assets/contratos/camera_pj.docx', './assets/contratos/alarme_pf.docx', './assets/contratos/alarme_pj.docx',
-  './assets/contratos/monitoramento_pf.docx', './assets/contratos/monitoramento_pj.docx', './assets/contratos/rastreamento.docx', './assets/contratos/manutencao_cftv.docx',
+  './assets/contratos/monitoramento_pf.docx', './assets/contratos/monitoramento_pj.docx', './assets/contratos/rastreamento.docx', './assets/contratos/manutencao_cftv.docx', './assets/contratos/aditivo.docx',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'
 ];
 const CDN = ['cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];

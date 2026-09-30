@@ -17,7 +17,7 @@
      Cli.CEP, Cli.Telefone, Cli.Email, Cli.Representante, Cli.RepCPF, Cli.RepRG,
      Cli.RepCargo, Cli.RepNacionalidade, Cli.RepEstadoCivil, Cli.RepProfissao, Cli.ValorME, vExtensoValorME, CONTR.Prazo, CONTR.PrazoExtenso,
      CONTR.DiasRetencao, CONTR.ComInstalacao, CONTR.SemInstalacao, CONTR.Local,
-     CONTR.DataExtenso, CONTR.Data
+     CONTR.DataExtenso, CONTR.Data, CONTR.NumAditivo, CONTR.NumItens, CONTR.TotalComodato
    Trechos condicionais
      [[PJ|texto]]  aparece só para pessoa jurídica
      [[PF|texto]]  aparece só para pessoa física
@@ -38,7 +38,8 @@
     { id: 'monitoramento_pf', grupo: 'Somente monitoramento (equipamento do cliente)', pessoa: 'PF', arquivo: 'monitoramento_pf.docx', prazo: 12 },
     { id: 'monitoramento_pj', grupo: 'Somente monitoramento (equipamento do cliente)', pessoa: 'PJ', arquivo: 'monitoramento_pj.docx', prazo: 12 },
     { id: 'rastreamento', grupo: 'Rastreamento veicular', pessoa: 'AMBOS', arquivo: 'rastreamento.docx', prazo: 12 },
-    { id: 'manutencao_cftv', grupo: 'Manutenção de CFTV', pessoa: 'PJ', arquivo: 'manutencao_cftv.docx', prazo: 24 }
+    { id: 'manutencao_cftv', grupo: 'Manutenção de CFTV', pessoa: 'PJ', arquivo: 'manutencao_cftv.docx', prazo: 24 },
+    { id: 'aditivo', grupo: 'Aditivo de equipamentos (cliente que já tem contrato)', pessoa: 'AMBOS', arquivo: 'aditivo.docx' }
   ];
   const PESSOA_LBL = { PF: 'Pessoa física', PJ: 'Pessoa jurídica', AMBOS: 'Física ou jurídica' };
   const TOKEN_RE = /\b(?:CLI|Cli|CONTR)\.[A-Za-zÀ-ÿ]+|\bvExtensoValorME\b/g;
@@ -155,6 +156,11 @@
     const rs = kid(rPr, 'rStyle'); if (rs) o.rStyle = at(rs, 'val');
     return o;
   }
+  function readBorders(el) {
+    if (!el) return null;
+    const side = n => { const e = kid(el, n); return e ? !['none', 'nil'].includes(at(e, 'val')) : undefined; };
+    return { top: side('top'), bottom: side('bottom'), left: side('left') ?? side('start'), right: side('right') ?? side('end'), h: side('insideH'), v: side('insideV') };
+  }
   function readStyles(xml) {
     const st = { p: {}, r: {}, defP: {}, defR: { sz: 11 }, map: {} };
     if (!xml) return st;
@@ -167,7 +173,7 @@
     kids(d, 'style').forEach(s => {
       const id = at(s, 'styleId');
       const based = kid(s, 'basedOn');
-      st.map[id] = { p: readPPr(kid(s, 'pPr')), r: readRPr(kid(s, 'rPr')), based: based ? at(based, 'val') : null, type: at(s, 'type'), def: at(s, 'default') === '1' };
+      st.map[id] = { p: readPPr(kid(s, 'pPr')), r: readRPr(kid(s, 'rPr')), bd: readBorders(kid(kid(s, 'tblPr'), 'tblBorders')), based: based ? at(based, 'val') : null, type: at(s, 'type'), def: at(s, 'default') === '1' };
       if (st.map[id].def && st.map[id].type === 'paragraph') st.defStyle = id;
     });
     return st;
@@ -179,12 +185,14 @@
     chain.forEach(s => Object.assign(out, s[kind]));
     return out;
   }
-  function readParagraph(p, st) {
+  function readParagraph(p, st, tbl) {
     const pPr = kid(p, 'pPr');
     const direct = readPPr(pPr);
     const sid = direct.style || st.defStyle;
-    const pp = Object.assign({}, st.defP, styleChain(st, sid, 'p'), direct);
-    const pr = Object.assign({}, st.defR, styleChain(st, sid, 'r'));
+    const padrao = !direct.style || direct.style === st.defStyle;
+    const tp = tbl ? tbl.p : {}, tr = tbl ? tbl.r : {};
+    const pp = Object.assign({}, st.defP, padrao ? styleChain(st, sid, 'p') : {}, tp, padrao ? {} : styleChain(st, sid, 'p'), direct);
+    const pr = Object.assign({}, st.defR, padrao ? styleChain(st, sid, 'r') : {}, tr, padrao ? {} : styleChain(st, sid, 'r'));
     const mark = Object.assign({}, pr, readRPr(kid(pPr, 'rPr')));
     const runs = [];
     const addRun = r => {
@@ -211,9 +219,13 @@
     const tblPr = kid(tbl, 'tblPr');
     const grid = kids(kid(tbl, 'tblGrid'), 'gridCol').map(g => tw(at(g, 'w')));
     const ind = kid(tblPr, 'tblInd');
-    const bd = kid(tblPr, 'tblBorders');
-    const borderOn = side => { const e = kid(bd, side); return e ? !['none', 'nil'].includes(at(e, 'val')) : false; };
-    const borders = bd ? { top: borderOn('top'), bottom: borderOn('bottom'), left: borderOn('left'), right: borderOn('right'), h: borderOn('insideH'), v: borderOn('insideV') } : { top: false, bottom: false, left: false, right: false, h: false, v: false };
+    const tsEl = kid(tblPr, 'tblStyle'), ts = tsEl ? at(tsEl, 'val') : null;
+    const tblSt = ts ? { p: styleChain(st, ts, 'p'), r: styleChain(st, ts, 'r') } : null;
+    let estiloBd = null;
+    for (let cur = ts, g = 0; cur && st.map[cur] && g < 10; cur = st.map[cur].based, g++) if (st.map[cur].bd) { estiloBd = st.map[cur].bd; break; }
+    const bdD = readBorders(kid(tblPr, 'tblBorders')) || {}, bdE = estiloBd || {};
+    const pick = k => bdD[k] !== undefined ? bdD[k] : bdE[k] !== undefined ? bdE[k] : false;
+    const borders = { top: pick('top'), bottom: pick('bottom'), left: pick('left'), right: pick('right'), h: pick('h'), v: pick('v') };
     const cm = kid(tblPr, 'tblCellMar');
     const defMar = { t: 0, b: 0, l: tw(at(kid(cm, 'left'), 'w')) ?? 5.4, r: tw(at(kid(cm, 'right'), 'w')) ?? 5.4 };
     const jcT = kid(tblPr, 'jc');
@@ -226,7 +238,8 @@
           span: span ? Number(at(span, 'val')) : 1,
           fill: shd && at(shd, 'fill') && at(shd, 'fill') !== 'auto' ? at(shd, 'fill') : null,
           mar: { t: m('top') ?? defMar.t, b: m('bottom') ?? defMar.b, l: m('left') ?? defMar.l, r: m('right') ?? defMar.r },
-          blocks: kids(tc, 'p').map(p => readParagraph(p, st))
+          bord: readBorders(kid(tcPr, 'tcBorders')),
+          blocks: kids(tc, 'p').map(p => readParagraph(p, st, tblSt))
         };
       })
     }));
@@ -243,13 +256,19 @@
     const doc = new DOMParser().parseFromString(await zip.file('word/document.xml').async('string'), 'application/xml').documentElement;
     const body = kid(doc, 'body');
     const blocks = [];
-    let sect = null;
+    let sect = null, ini = 0, nSec = 0;
+    const colunas = sp => { const c = kid(sp, 'cols'); const num = c ? Number(at(c, 'num') || 1) : 1; return num > 1 ? { num, space: tw(at(c, 'space')) ?? 35.4 } : null; };
+    const fecharSecao = sp => { const cols = colunas(sp); for (let k = ini; k < blocks.length; k++) { blocks[k].sec = nSec; blocks[k].cols = cols; } ini = blocks.length; nSec++; };
     Array.from(body.childNodes).forEach(n => {
       if (n.nodeType !== 1) return;
-      if (n.localName === 'p') blocks.push(readParagraph(n, st));
-      else if (n.localName === 'tbl') blocks.push(readTable(n, st));
+      if (n.localName === 'p') {
+        blocks.push(readParagraph(n, st));
+        const sp = kid(kid(n, 'pPr'), 'sectPr');
+        if (sp) fecharSecao(sp);
+      } else if (n.localName === 'tbl') blocks.push(readTable(n, st));
       else if (n.localName === 'sectPr') sect = n;
     });
+    if (sect) fecharSecao(sect);
     if (!sect) sect = body.getElementsByTagName('w:sectPr')[0];
     const pgSz = kid(sect, 'pgSz'), pgMar = kid(sect, 'pgMar');
     const page = {
@@ -332,7 +351,10 @@
       'SemInstalacao': { label: 'Modalidade de instalação', onde: 'contrato', valor: par.instalacao ? (par.instalacao === 'sem' ? 'X' : ' ') : '' },
       'Local': { label: 'Local de assinatura', onde: 'contrato', valor: par.local || '' },
       'DataExtenso': { label: 'Data do contrato', onde: 'contrato', valor: par.data ? dataExtenso(par.data) : '' },
-      'Data': { label: 'Data do contrato', onde: 'contrato', valor: par.data ? par.data.split('-').reverse().join('/') : '' }
+      'Data': { label: 'Data do contrato', onde: 'contrato', valor: par.data ? par.data.split('-').reverse().join('/') : '' },
+      'NumAditivo': { label: 'Número do aditivo', onde: 'contrato', valor: parseInt(par.numAditivo, 10) > 0 ? String(parseInt(par.numAditivo, 10)) : '' },
+      'NumItens': { label: 'Equipamentos na proposta', onde: 'proposta', valor: ctx.equip.length ? String(ctx.equip.length) : '' },
+      'TotalComodato': { label: 'Equipamentos na proposta', onde: 'proposta', valor: ctx.equip.length ? brl(ctx.equip.reduce((a, l) => a + l._total, 0)) : '' }
     };
   }
   const chave = tok => tok.replace(/^(CLI|Cli|CONTR)\./, '');
@@ -340,25 +362,30 @@
   /* ---------- Tabelas de equipamentos e veículos ---------- */
   const COLUNAS = [
     [/^codigo/, 'codigo'], [/serie/, 'serie'], [/^qtd|^qtde|^quant/, 'qtd'], [/^unidade|^un$|^und/, 'unidade'], [/^locado/, 'locado'],
-    [/valor unit/, 'unit'], [/valor total|reposicao/, 'total'], [/^descri|^produto|^equipamento/, 'descricao'],
+    [/valor unit|vl unit/, 'unit'], [/valor total|vl total|reposicao/, 'total'], [/^descri|^produto|^equipamento/, 'descricao'],
     [/^placa/, 'placa'], [/marca|modelo/, 'modelo'], [/^ano/, 'ano'], [/^cor$/, 'cor'], [/^chassi/, 'chassi'], [/^renavam/, 'renavam']
   ];
   const cellText = cell => cell.blocks.map(b => b.runs.map(r => r.text).join('')).join(' ').trim();
   function tipoTabela(t) {
     if (!t.rows.length) return null;
     const cols = t.rows[0].cells.map(c => { const n = nrm(cellText(c)); const f = COLUNAS.find(([re]) => re.test(n)); return f ? f[1] : null; });
-    const corpoVazio = t.rows.slice(1).every(r => r.cells.every(c => /^(r\$)?\s*$/i.test(cellText(c))));
-    if (!corpoVazio || t.rows.length < 2) return null;
-    if (cols.includes('placa')) return { tipo: 'veiculos', cols };
-    if (cols.includes('codigo') && cols.includes('descricao')) return { tipo: 'equipamentos', cols };
+    const vazia = r => r.cells.every(c => /^(r\$)?\s*$/i.test(cellText(c)));
+    if (t.rows.length < 2 || !t.rows.slice(1).some(vazia)) return null;
+    if (cols.includes('placa')) return { tipo: 'veiculos', cols, vazia };
+    if (cols.includes('descricao') && (cols.includes('codigo') || cols.includes('qtd'))) return { tipo: 'equipamentos', cols, vazia };
     return null;
   }
   function preencherTabela(t, info, linhas) {
-    const modelo = t.rows[1];
+    // As linhas vazias do modelo dão lugar aos itens; linhas com texto (ex.: totais) são mantidas
+    const corpo = t.rows.slice(1);
+    const pos = corpo.findIndex(info.vazia);
+    const modelo = corpo[pos];
+    const semCodigo = !info.cols.includes('codigo');
     const novas = (linhas.length ? linhas : [{}]).map(l => {
       const row = clone(modelo);
       row.cells.forEach((cell, i) => {
-        const v = l[info.cols[i]] == null ? '' : String(l[info.cols[i]]);
+        let v = l[info.cols[i]] == null ? '' : String(l[info.cols[i]]);
+        if (semCodigo && info.cols[i] === 'descricao' && l.codigo) v = l.codigo + ' ' + v;
         const p = cell.blocks[0] || { type: 'p', pp: {}, runs: [], markSz: 11 };
         const base = p.runs[0] || { b: false, i: false, u: false, caps: false, sz: p.markSz || 11, font: '' };
         p.runs = v ? [Object.assign({}, base, { text: v, b: false })] : [];
@@ -366,12 +393,13 @@
       });
       return row;
     });
-    t.rows = [t.rows[0]].concat(novas);
+    const antes = corpo.slice(0, pos).filter(r => !info.vazia(r)), depois = corpo.slice(pos).filter(r => !info.vazia(r));
+    t.rows = [t.rows[0]].concat(antes, novas, depois);
   }
   function linhasEquipamentos(P) {
     return (P.itens || []).filter(i => i.tipo !== 'Serviço' && String(i.descricao || '').trim()).map(i => {
       const q = Number(i.quantidade) || 1, u = Number(i.valorUnitario) || 0;
-      return { codigo: i.codigo || '', descricao: up(i.descricao), qtd: Number.isInteger(q) ? String(q) : brl(q), unidade: up(i.unidade || 'UN'), locado: i.locado ? 'Sim' : 'Não', unit: 'R$ ' + brl(u), total: 'R$ ' + brl(u * q), serie: '' };
+      return { codigo: i.codigo || '', descricao: up(i.descricao), qtd: Number.isInteger(q) ? String(q) : brl(q), unidade: up(i.unidade || 'UN'), locado: i.locado ? 'Sim' : 'Não', unit: 'R$ ' + brl(u), total: 'R$ ' + brl(u * q), serie: '', _total: u * q };
     });
   }
 
@@ -379,7 +407,7 @@
   async function preparar(def, cliente, proposta, params) {
     const modelo = await carregarModelo(def.arquivo);
     const blocks = clone(modelo.blocks);
-    const ctx = { def, cliente, proposta, params, pessoa: def.pessoa === 'AMBOS' ? pessoaDoCliente(cliente, 'PF') : def.pessoa };
+    const ctx = { def, cliente, proposta, params, pessoa: def.pessoa === 'AMBOS' ? pessoaDoCliente(cliente, 'PF') : def.pessoa, equip: linhasEquipamentos(proposta) };
     const C = campos(ctx);
     const usados = new Set(), opcionais = new Set(), desconhecidos = new Set();
     // 1) Trechos condicionais
@@ -400,7 +428,7 @@
     });
     // 3) Tabelas
     const tabelas = { equipamentos: false, veiculos: false };
-    const equip = linhasEquipamentos(proposta);
+    const equip = ctx.equip;
     const veic = (params.veiculos || []).filter(v => v.placa || v.modelo).map(v => ({ placa: up(v.placa), modelo: up(v.modelo), ano: v.ano || '', cor: up(v.cor), chassi: up(v.chassi), renavam: v.renavam || '' }));
     blocks.forEach(b => {
       if (b.type !== 'tbl') return;
@@ -422,7 +450,7 @@
     if (tabelas.equipamentos) pend.push({ label: 'Equipamentos na proposta', onde: 'proposta', ok: equip.length > 0 });
     if (tabelas.veiculos) pend.push({ label: 'Veículo(s) a rastrear (placa e marca/modelo)', onde: 'contrato', ok: veic.length > 0 && veic.every(v => v.placa && v.modelo) });
     desconhecidos.forEach(t => pend.push({ label: 'Campo "' + t + '" do modelo não é reconhecido', onde: 'modelo', ok: false }));
-    const precisa = { prazo: usados.has('Prazo'), dias: usados.has('DiasRetencao'), instalacao: usados.has('ComInstalacao') || usados.has('SemInstalacao'), veiculos: tabelas.veiculos };
+    const precisa = { numAditivo: usados.has('NumAditivo'), prazo: usados.has('Prazo'), dias: usados.has('DiasRetencao'), instalacao: usados.has('ComInstalacao') || usados.has('SemInstalacao'), veiculos: tabelas.veiculos };
     return { blocks, page: modelo.page, pend, precisa, pessoa: ctx.pessoa, ok: pend.every(p => p.ok) };
   }
 
@@ -541,7 +569,11 @@
       if (quebraPagina && pp.keepNext && linhas.length <= 2 && yy + alturaLinha(p, linhas[0]) * 3 > FIM) { novaPagina(); yy = y + before; }
       linhas.forEach((ln, idx) => {
         const h = alturaLinha(p, ln);
-        if (quebraPagina && yy + h > FIM) { novaPagina(); yy = y; }
+        if (quebraPagina && yy + h > FIM) {
+          // Linha em branco no fim da página não abre página nova (evita páginas vazias)
+          if (!ln.itens.some(i => !i.esp)) { yy = FIM; return; }
+          novaPagina(); yy = y;
+        }
         if (desenhar) {
           const primeira = idx === 0;
           const xi = x + (pp.indL || 0) + (primeira ? (pp.first || 0) : 0);
@@ -579,6 +611,7 @@
       const larguraT = cols.reduce((a, b) => a + b, 0);
       const xT = t.jc === 'center' ? X0 + (LARG - larguraT) / 2 : X0 + (t.ind || 0);
       const B = t.borders;
+      const fundoAnt = [];
       const linha = (row, ri, repetida) => {
         // mede cada célula
         let ci = 0;
@@ -607,12 +640,18 @@
           y = yAnt;
         });
         doc.setDrawColor(0, 0, 0); doc.setLineWidth(0.5);
-        const x1 = xT, x2 = xT + larguraT;
-        if (ri === 0 || repetida ? B.top : B.h) doc.line(x1, y, x2, y);
-        if ((ri === t.rows.length - 1 && B.bottom) || (repetida && B.h)) doc.line(x1, y + hRow, x2, y + hRow);
+        const ultima = ri === t.rows.length - 1;
         cels.forEach((c, i) => {
-          if (i === 0 ? B.left : B.v) doc.line(c.x, y, c.x, y + hRow);
-          if (i === cels.length - 1 && B.right) doc.line(c.x + c.w, y, c.x + c.w, y + hRow);
+          const bd = c.cell.bord || {};
+          const sup = bd.top !== undefined ? bd.top : (ri === 0 || repetida ? B.top : (fundoAnt[i] === false ? false : B.h));
+          const inf = bd.bottom !== undefined ? bd.bottom : (ultima ? B.bottom : (repetida ? B.h : undefined));
+          const esq = bd.left !== undefined ? bd.left : (i === 0 ? B.left : B.v);
+          const dir = bd.right !== undefined ? bd.right : (i === cels.length - 1 ? B.right : B.v);
+          if (sup) doc.line(c.x, y, c.x + c.w, y);
+          if (inf) doc.line(c.x, y + hRow, c.x + c.w, y + hRow);
+          if (esq) doc.line(c.x, y, c.x, y + hRow);
+          if (dir) doc.line(c.x + c.w, y, c.x + c.w, y + hRow);
+          fundoAnt[i] = inf;
         });
         y += hRow;
       };
@@ -640,7 +679,34 @@
       return yy + (pp.after || 0);
     }
 
-    montado.blocks.forEach(b => {
+    /** Seção em colunas (ex.: testemunhas lado a lado): distribui os parágrafos de forma equilibrada. */
+    function desenharColunas(bs, cols) {
+      const n = cols.num, gap = cols.space, w = (LARG - gap * (n - 1)) / n;
+      const ps = bs.filter(x => x.type === 'p');
+      const hs = ps.map(p => desenharParagrafo(p, 0, w, false, false));
+      const alvo = hs.reduce((a, b) => a + b, 0) / n;
+      const grupos = [[]]; let acc = 0;
+      ps.forEach((p, k) => {
+        if (acc >= alvo - 0.1 && grupos.length < n && grupos[grupos.length - 1].length) { grupos.push([]); acc = 0; }
+        grupos[grupos.length - 1].push(k); acc += hs[k];
+      });
+      const altura = Math.max(...grupos.map(g => g.reduce((a, k) => a + hs[k], 0)));
+      if (y + altura > FIM) novaPagina();
+      const y0 = y; let yMax = y0;
+      grupos.forEach((g, ci) => { y = y0; g.forEach(k => desenharParagrafo(ps[k], X0 + ci * (w + gap), w, true, true)); yMax = Math.max(yMax, y); });
+      y = yMax;
+      bs.filter(x => x.type === 'tbl').forEach(desenharTabela);
+    }
+    const lista = montado.blocks;
+    for (let i = 0; i < lista.length; i++) {
+      if (lista[i].cols && lista[i].cols.num > 1) {
+        let j = i; while (j < lista.length && lista[j].sec === lista[i].sec) j++;
+        desenharColunas(lista.slice(i, j), lista[i].cols);
+        i = j - 1; continue;
+      }
+      desenharBloco(lista[i]);
+    }
+    function desenharBloco(b) {
       if (b.type === 'tbl') { desenharTabela(b); return; }
       if (b.pp.pageBreakBefore) novaPagina();
       const txt = b.runs.map(r => r.text).join('');
@@ -650,7 +716,7 @@
         b = Object.assign({}, b, { runs: b.runs.map(r => Object.assign({}, r, { text: r.text.replace(/\f/g, '') })) });
       }
       desenharParagrafo(b, X0, LARG, true, true);
-    });
+    }
     return doc;
   }
 
