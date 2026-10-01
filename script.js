@@ -1550,7 +1550,7 @@ function propostasTable(l, compact = false) {
       '<td class="row-actions-cell no-label"><div class="row-actions">' +
       '<button class="btn-icon" data-act="pdf-proposta" data-id="' + esc(p.id) + '" title="Gerar PDF" aria-label="Gerar PDF">' + icon('file') + '</button>' +
       '<button class="btn-icon" data-act="edit-proposta" data-id="' + esc(p.id) + '" title="Editar" aria-label="Editar">' + icon('edit') + '</button>' +
-      '<button class="btn-icon" data-act="contrato-proposta" data-id="' + esc(p.id) + '" title="Gerar contrato" aria-label="Gerar contrato">' + icon('contract') + '</button>' +
+      (isAdmin() ? '<button class="btn-icon" data-act="contrato-proposta" data-id="' + esc(p.id) + '" title="Gerar contrato" aria-label="Gerar contrato">' + icon('contract') + '</button>' : '') +
       '<button class="btn-icon" data-act="dup-proposta" data-id="' + esc(p.id) + '" title="Duplicar" aria-label="Duplicar">' + icon('copy') + '</button>' +
       '<button class="btn-icon" data-act="delete-proposta" data-id="' + esc(p.id) + '" title="Excluir" aria-label="Excluir">' + icon('trash') + '</button></div></td></tr>').join('') +
     '</tbody></table></div>';
@@ -1853,7 +1853,7 @@ function showPdfActions(doc, nome, cliente, prop) {
       '<button class="btn btn-lg" data-open>' + icon('eye') + 'Abrir PDF</button>' +
       (canShare ? '<button class="btn btn-lg" data-share>' + icon('share') + 'Compartilhar arquivo</button>' : '') +
       (fone && cliente.id ? '<button class="btn btn-lg btn-wa" data-wa>' + icon('wa') + 'Mensagem no WhatsApp</button>' : '') + '</div>' +
-      (prop.id ? '<div class="ct-cta"><div><strong>Contrato</strong><small>Gere o contrato preenchido com os dados deste cliente e desta proposta.</small></div>' +
+      (prop.id && isAdmin() ? '<div class="ct-cta"><div><strong>Contrato</strong><small>Gere o contrato preenchido com os dados deste cliente e desta proposta.</small></div>' +
         '<button class="btn btn-lg" data-contrato>' + icon('contract') + 'Gerar contrato</button></div>' : '')
   });
   const bc = $('[data-contrato]', m);
@@ -1870,6 +1870,7 @@ function localPadrao(c) {
   return /niteroi|sao goncalo|marica|rio de janeiro|itaborai|duque de caxias|nova iguacu/.test(norm(c && c.cidade)) ? 'Niterói' : 'Volta Redonda';
 }
 function openContratoModal(propId) {
+  if (!isAdmin()) return toast('Somente o administrador pode gerar contratos.', 'warn');
   const reg = byId(S.data.propostas, propId);
   if (!reg) return toast('Proposta não encontrada.', 'err');
   if (!window.VegasContratos) return toast('O módulo de contratos ainda está carregando. Tente em instantes.', 'warn');

@@ -4,7 +4,7 @@
    Os dados SEMPRE vêm do Google Sheets: chamadas ao Apps Script não são cacheadas.
    Ao publicar uma nova versão, altere CACHE para forçar a atualização.
    ========================================================================== */
-const CACHE = 'vegas-prospeccao-v1.3.0';
+const CACHE = 'vegas-prospeccao-v1.3.1';
 const APP_SHELL = [
   './', './index.html', './style.css', './script.js', './pdf.js', './contratos.js', './manifest.json',
   './assets/logo-branca.png', './assets/logo-escura.png', './assets/pdf-fundo.jpg', './assets/login-fundo.jpg', './assets/login-fundo-blur.jpg',
