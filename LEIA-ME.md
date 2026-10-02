@@ -11,6 +11,7 @@ Sistema comercial com banco de dados no Google Sheets, instalável como aplicati
 | `script.js` | Lógica do sistema (telas, formulários, CSV, WhatsApp, localização) |
 | `pdf.js` | Orçamento e relatórios em PDF no padrão do modelo oficial |
 | `contratos.js` | Contratos em PDF a partir dos modelos Word (`assets/contratos/`) |
+| `kits.js` | Kits prontos do orçamento (câmeras, alarmes, cerca, rastreador) |
 | `Code.gs` | Backend no Google Apps Script (banco de dados, login, regras) |
 | `manifest.json` + `sw.js` | Instalação como app no celular (PWA) |
 | `assets/pdf-fundo.jpg` | Papel timbrado extraído do seu PDF de referência |
@@ -130,6 +131,28 @@ Depois:
 Assinatura e contato do PDF usam o **Meu perfil no orçamento** (Configurações): nome completo, código, CPF e e-mail de cada vendedor. O perfil do André já vem igual ao modelo (11529 — ANDRE LUIZ LEAL DA CRUZ).
 
 **Cadastro de cliente:** o campo principal é **Nome do cliente** (pessoa ou empresa). Razão social e pessoa de contato são opcionais.
+
+## 11.1. Kits prontos no orçamento
+
+No editor do orçamento (venda ou locação), o painel **Kits prontos** fica logo acima de "Produtos e serviços". Toque no kit, confira a lista e clique em **Adicionar ao orçamento**. Na locação os itens já entram marcados como comodato ("Locado" no PDF). Item que já estava na proposta tem a quantidade somada.
+
+| Kit | O que entra |
+|---|---|
+| Câmeras Hikvision (HiLook) 4 / 8 / 16 | DVR do nº de canais, HD 1TB (só se o DVR não vier com HD), câmeras, 1 balun + 1 P4 + 1 caixa por câmera, fonte, rack e filtro de linha |
+| Câmeras Intelbras 4 / 8 / 16 | Igual ao de cima, com DVR MHDX e câmera VHL1220B |
+| Alarme JFL Active 20 | Central, teclado TEC 300, sirene, bateria, sensor, controle TX 4R e módulo MGP04 4G |
+| Alarme Intelbras 2018 | Central com teclado, módulo XG 4G, sirene, bateria, sensor e controle XAC 4000 |
+| Câmera Wi-Fi TP C200 | Câmera, cartão 32GB, caixa, tomada e roteador (1 roteador por instalação) |
+| Cerca elétrica | Central, bateria, sirene, bobina, hastes e placa |
+| Rastreador 4G | Rastreador, chip, relé, chicote e espuma (por veículo) |
+
+**DVR e câmera automáticos:** o sistema procura no catálogo o DVR da marca com 4, 8 ou 16 canais (pelo nome: "4 CN", "08 CANAIS" ou pelo modelo, ex.: MHDX1308, DVR-208G). Se houver mais de um, ou se quiser outro, troque na lista. Dá também para mudar a quantidade de câmeras (ex.: 6 câmeras num DVR de 8).
+
+**Fonte:** até 4 câmeras, 1 fonte 5A; acima disso, 1 fonte 10A a cada 8 câmeras (16 câmeras = 2 fontes).
+
+**Item fora do catálogo:** aparece em vermelho na conferência e entra com o código e o nome do kit e valor R$ 0,00. Cadastre o produto em **Produtos** para o valor de reposição sair certo no contrato.
+
+**Alterar os kits:** edite as listas no topo do arquivo `kits.js` (código e descrição de cada item) e mude a versão no `sw.js`.
 
 ## 12.1. Contratos em PDF
 

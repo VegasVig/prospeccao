@@ -24,7 +24,7 @@
  *  Também é possível informar pela tela de login em "Configurar servidor". */
 const API_URL_PADRAO = 'https://script.google.com/macros/s/AKfycbwonu0cMaQlxrkUtDHlKq_HS-hWWBuMbk7cQHJkgYIcryDKD071Yq-2UBw32KrYI7JH/exec';
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 const STATUS = [
   'Novo lead', 'Primeiro contato', 'Em negociação', 'Visita agendada', 'Orçamento enviado',
@@ -1641,6 +1641,7 @@ function propostaEditorHtml(param) {
     '</div><small id="pTipoInfo"></small></div>' +
     '<div class="span-all"><button class="btn btn-sm" data-act="new-cliente">' + icon('userplus') + 'Cadastrar novo cliente</button></div></div></section>' +
     '<div id="pMensalSec"></div>' +
+    (typeof kitsPanelHtml === 'function' ? kitsPanelHtml() : '') +
     '<section class="panel"><div class="panel-head"><h2>Produtos e serviços</h2><span class="muted" id="pQtdItens"></span></div><div id="pItens"></div>' +
     '<div class="add-item"><input id="pAddProd" list="dlProdProp" placeholder="Adicionar do catálogo: digite código ou nome"><datalist id="dlProdProp">' +
     S.data.produtos.filter(p => p.status !== 'Inativo').map(p => '<option value="' + esc(produtoLabel(p)) + '">' + esc(p.tipo + ' • ' + money(p.preco)) + '</option>').join('') + '</datalist>' +
