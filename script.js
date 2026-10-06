@@ -1683,6 +1683,7 @@ function drawPropTotais() {
   const tm = $('#pTotMensal'); if (tm) tm.textContent = money(t.totalMensal);
   $('#pQtdItens').textContent = S.prop.itens.length + ' item(ns)';
   S.prop.itens.forEach((i, idx) => { const el = $('#itTot' + idx); if (el) el.textContent = i.locado ? 'Locado' : money(i.total); });
+  if (syncCondicoesAuto(t) && $('#pConds')) drawPropConds();
 }
 function drawPropItens() {
   const P = S.prop;
@@ -1783,16 +1784,32 @@ function propostaEditorBind() {
     const el = e.target.closest('[data-c]'); if (!el) return;
     const c = P.condicoes[+el.closest('[data-ci]').dataset.ci];
     c[el.dataset.c] = el.dataset.c === 'valor' ? num(el.value) : el.value;
+    if (el.dataset.c !== 'entrada') c.auto = ''; // editou à mão: para de recalcular sozinho
   });
 }
 function addCondicao(tipo) {
   const t = calcProposta();
   const P = S.prop;
-  if (tipo === 'mensal') P.condicoes.push({ entrada: 'S', condicao: P.tipoOrcamento === 'Locado' ? 'ALUGUEL MENSAL (COMODATO)' : 'MENSALIDADE', parcelas: 'MENSAL', valor: t.totalMensal });
-  else if (tipo === 'vista') P.condicoes.push({ entrada: 'A VISTA', condicao: money(t.valorFinal), parcelas: '', valor: t.valorFinal });
-  else if (tipo) { const n = +tipo; P.condicoes.push({ entrada: 'S', condicao: 'CARTÃO DE CRÉDITO', parcelas: n + 'x de ' + money(round2(t.valorFinal / n)), valor: t.valorFinal }); }
-  else P.condicoes.push({ entrada: '', condicao: '', parcelas: '', valor: t.valorFinal });
+  // auto = a linha acompanha o total do orçamento até o usuário editar valor/condição/parcelas à mão
+  if (tipo === 'mensal') P.condicoes.push({ entrada: 'S', condicao: P.tipoOrcamento === 'Locado' ? 'ALUGUEL MENSAL (COMODATO)' : 'MENSALIDADE', parcelas: 'MENSAL', valor: t.totalMensal, auto: 'mensal' });
+  else if (tipo === 'vista') P.condicoes.push({ entrada: 'A VISTA', condicao: money(t.valorFinal), parcelas: '', valor: t.valorFinal, auto: 'vista' });
+  else if (tipo) { const n = +tipo; P.condicoes.push({ entrada: 'S', condicao: 'CARTÃO DE CRÉDITO', parcelas: n + 'x de ' + money(round2(t.valorFinal / n)), valor: t.valorFinal, auto: String(n) }); }
+  else P.condicoes.push({ entrada: '', condicao: '', parcelas: '', valor: t.valorFinal, auto: 'linha' });
   drawPropConds();
+}
+/** Recalcula as condições automáticas quando o total muda. Retorna true se alguma mudou. */
+function syncCondicoesAuto(t) {
+  const P = S.prop; let mudou = false;
+  (P.condicoes || []).forEach(c => {
+    if (!c.auto) return;
+    const antes = c.condicao + '|' + c.parcelas + '|' + c.valor;
+    if (c.auto === 'mensal') c.valor = t.totalMensal;
+    else if (c.auto === 'vista') { c.condicao = money(t.valorFinal); c.valor = t.valorFinal; }
+    else if (c.auto === 'linha') c.valor = t.valorFinal;
+    else { const n = +c.auto; if (n > 0) { c.parcelas = n + 'x de ' + money(round2(t.valorFinal / n)); c.valor = t.valorFinal; } }
+    if (antes !== c.condicao + '|' + c.parcelas + '|' + c.valor) mudou = true;
+  });
+  return mudou;
 }
 /** Converte o estado do editor no objeto usado pelo PDF. */
 function propostaParaPDF(P, numero) {
