@@ -592,7 +592,14 @@ function importProdutos_(p, user) {
     if (lista.length > 2000) throw new Error('Envie no máximo 2.000 produtos por vez.');
     const todos = readAll_('PRODUTOS');
     const porCodigo = {};
-    todos.forEach(function (x) { if (x.codigo) porCodigo[x.codigo] = x; });
+    const porNome = {}, nomesLista = {}, usados = {};
+    const chave = function (v) { return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim(); };
+    todos.forEach(function (x) {
+      if (x.codigo) porCodigo[x.codigo] = x;
+      const k = chave(x.produto); porNome[k] = porNome[k] ? null : x;
+    });
+    lista.forEach(function (it) { const k = chave(it.produto); nomesLista[k] = (nomesLista[k] || 0) + 1; });
+    const campos = Array.isArray(p.campos) && p.campos.length ? p.campos.concat(['dataAtualizacao', 'atualizadoPor']) : null;
     const novos = [], erros = [];
     let atualizados = 0, ignorados = 0;
     const sh = sheet_('PRODUTOS');
@@ -603,10 +610,13 @@ function importProdutos_(p, user) {
         const d = produtoData_(item);
         d.dataAtualizacao = now_();
         d.atualizadoPor = user.nome;
-        const existente = d.codigo && porCodigo[d.codigo];
+        const k = chave(d.produto);
+        let existente = d.codigo && porCodigo[d.codigo];
+        if (!existente && nomesLista[k] === 1 && porNome[k] && !usados[porNome[k].id]) existente = porNome[k];
         if (existente) {
           if (!p.atualizarExistentes) { ignorados++; return; }
-          const row = SCHEMA.PRODUTOS.map(function (c) { return safe_(c[0] in d ? d[c[0]] : existente[c[0]]); });
+          usados[existente.id] = true;
+          const row = SCHEMA.PRODUTOS.map(function (c) { return safe_(c[0] in d && (!campos || campos.indexOf(c[0]) !== -1) ? d[c[0]] : existente[c[0]]); });
           sh.getRange(existente._row, 1, 1, row.length).setValues([row]);
           atualizados++;
           return;

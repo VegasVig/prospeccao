@@ -1394,13 +1394,13 @@ async function exportProdutos() {
 
 /* ===== 9.7 Importação de produtos por CSV ===== */
 const CAMPOS_IMPORT = [
-  { k: 'codigo', l: 'Código', alias: ['codigo', 'cod', 'cod.', 'sku', 'ref', 'referencia', 'codigo do produto'] },
+  { k: 'codigo', l: 'Código', alias: ['codigo', 'codproduto', 'cod produto', 'cod', 'cod.', 'sku', 'ref', 'referencia', 'codigo do produto'] },
   { k: 'produto', l: 'Nome do produto', req: true, alias: ['produto', 'nome', 'nome do produto', 'item', 'descricao do produto', 'mercadoria'] },
   { k: 'categoria', l: 'Categoria', alias: ['categoria', 'grupo', 'familia', 'linha', 'departamento'] },
   { k: 'tipo', l: 'Tipo', alias: ['tipo', 'tipo de item'] },
   { k: 'descricao', l: 'Descrição', alias: ['descricao', 'detalhes', 'observacao', 'obs', 'descricao detalhada'] },
   { k: 'unidade', l: 'Unidade', alias: ['unidade', 'un', 'und', 'unid', 'medida', 'unidade de medida'] },
-  { k: 'preco', l: 'Preço', alias: ['preco', 'valor', 'preco venda', 'preco de venda', 'valor unitario', 'preco unitario', 'vlr', 'valor venda'] },
+  { k: 'preco', l: 'Preço', alias: ['valor venda', 'valor de venda', 'preco venda', 'preco de venda', 'preco', 'valor unitario', 'preco unitario', 'valor', 'vlr'] },
   { k: 'status', l: 'Status', alias: ['status', 'situacao', 'ativo'] }
 ];
 /** Lê CSV respeitando aspas, quebras de linha em campos e o separador informado. */
@@ -1484,8 +1484,11 @@ async function readCSVFile(file) {
   const headers = rows[0].map(h => h.trim());
   const map = {};
   CAMPOS_IMPORT.forEach(c => {
-    const i = headers.findIndex(h => c.alias.includes(norm(h).replace(/[_]+/g, ' ')));
-    if (i >= 0 && !Object.values(map).includes(i)) map[c.k] = i;
+    const hs = headers.map(h => norm(h).replace(/[_]+/g, ' '));
+    for (const a of c.alias) {
+      const i = hs.findIndex((h, j) => h === a && !Object.values(map).includes(j));
+      if (i >= 0) { map[c.k] = i; break; }
+    }
   });
   if (map.produto === undefined && map.descricao !== undefined) { map.produto = map.descricao; delete map.descricao; }
   S.imp = { nome: file.name, enc, delim, headers, rows: rows.slice(1), map, atualizar: true, tipoPadrao: 'Produto' };
@@ -1518,7 +1521,7 @@ async function confirmImport() {
   const lote = 400;
   for (let i = 0; i < itens.length; i += lote) {
     toast('Enviando ' + Math.min(i + lote, itens.length) + ' de ' + itens.length + '…', 'warn', 2000);
-    const r = await run(() => api('importProdutos', { produtos: itens.slice(i, i + lote), atualizarExistentes: S.imp.atualizar }));
+    const r = await run(() => api('importProdutos', { produtos: itens.slice(i, i + lote), atualizarExistentes: S.imp.atualizar, campos: Object.keys(S.imp.map) }));
     if (!r) { total.erros.push('Falha ao enviar o lote a partir da linha ' + itens[i]._linha + '.'); break; }
     total.importados += r.importados; total.atualizados += r.atualizados; total.ignorados += r.ignorados;
     total.erros = total.erros.concat(r.erros);
