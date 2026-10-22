@@ -1119,3 +1119,38 @@ function validaDocumento_(v) {
   }
   return false;
 }
+
+/** Correção única: grava em PRODUTOS o preço de venda e o código da aba PRECOS_VENDA (casando pelo nome). */
+function corrigirPrecosVenda() {
+  const src = getDb_().getSheetByName('PRECOS_VENDA');
+  if (!src) throw new Error('Importe o CSV numa aba chamada PRECOS_VENDA.');
+  const sv = src.getDataRange().getValues();
+  const h = sv[0].map(normalize_);
+  const iCod = h.indexOf('codigo'), iNome = h.indexOf('produto'), iPreco = h.indexOf('preco');
+  if (iNome < 0 || iPreco < 0) throw new Error('A aba PRECOS_VENDA precisa das colunas Produto e Preço.');
+  const chave = function (s) { return normalize_(s).replace(/\s+/g, ' '); };
+  const fila = {};
+  sv.slice(1).forEach(function (r) {
+    const k = chave(r[iNome]); if (!k) return;
+    (fila[k] = fila[k] || []).push({ cod: iCod >= 0 ? String(r[iCod]).trim() : '', preco: round2_(num_(r[iPreco])) });
+  });
+  const cols = SCHEMA.PRODUTOS.map(function (c) { return c[0]; });
+  const cCod = cols.indexOf('codigo'), cNome = cols.indexOf('produto'), cPreco = cols.indexOf('preco');
+  const cData = cols.indexOf('dataAtualizacao'), cPor = cols.indexOf('atualizadoPor');
+  const sh = sheet_('PRODUTOS');
+  const n = sh.getLastRow() - 1; if (n < 1) return;
+  const rng = sh.getRange(2, 1, n, cols.length);
+  const v = rng.getValues();
+  let ok = 0; const sem = [];
+  v.forEach(function (r) {
+    const f = fila[chave(r[cNome])];
+    if (!f || !f.length) { sem.push(r[cNome]); return; }
+    const x = f.shift();
+    r[cPreco] = String(x.preco);
+    if (x.cod) r[cCod] = x.cod;
+    r[cData] = now_(); r[cPor] = 'Correção preço de venda';
+    ok++;
+  });
+  rng.setNumberFormat('@').setValues(v);
+  Logger.log(ok + ' produto(s) corrigido(s). Sem correspondência (' + sem.length + '): ' + sem.join(' | '));
+}
